@@ -7,6 +7,12 @@ from .base import ObsidianBase
 
 logger = get_logger(__name__)
 
+_DAY_START_HOUR = 5
+
+
+def _habit_today() -> date:
+    return (datetime.now() - timedelta(hours=_DAY_START_HOUR)).date()
+
 
 class Habits(ObsidianBase):
     def __init__(self, vault_path, habits_dir, ignore_dirs=None):
@@ -14,7 +20,7 @@ class Habits(ObsidianBase):
         self.habits_dir = habits_dir
 
     def fetch_habits(self):
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = _habit_today().isoformat()
         habits = []
 
         if not os.path.isdir(self.habits_dir):
@@ -65,7 +71,7 @@ class Habits(ObsidianBase):
         if not entries:
             return 0
         dates = sorted(set(entries), reverse=True)
-        today = date.today()
+        today = _habit_today()
         days_since_last = (today - date.fromisoformat(dates[0])).days
         if days_since_last > max_gap + 1:
             return 0
@@ -79,7 +85,7 @@ class Habits(ObsidianBase):
         return streak
 
     def complete_habit(self, name):
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = _habit_today().isoformat()
         file_path = os.path.join(self.habits_dir, f"{name}.md")
 
         with open(file_path, "r", encoding="utf-8") as f:
@@ -109,7 +115,7 @@ class Habits(ObsidianBase):
         logger.info(f"Habit '{name}' completed for {today}")
 
     def uncomplete_habit(self, name):
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = _habit_today().isoformat()
         file_path = os.path.join(self.habits_dir, f"{name}.md")
 
         with open(file_path, "r", encoding="utf-8") as f:
