@@ -163,7 +163,6 @@ function playCompletionFeedback() {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-let todayLoaded = false;
 let planningLoaded = false;
 let habitsLoaded = false;
 let musicLoaded = false;
@@ -177,9 +176,8 @@ function switchTab(tab) {
   document.getElementById(`tab-${tab}`).classList.add('active');
   localStorage.setItem('activeTab', tab);
 
-  if (tab === 'today' && !todayLoaded) {
+  if (tab === 'today') {
     loadTasks();
-    todayLoaded = true;
   }
   if (tab === 'planning' && !planningLoaded) {
     loadNextTasks();
