@@ -137,12 +137,9 @@ async function addExercise(e) {
     if (res.ok) {
       playCompletionFeedback();
       renderWorkoutList(data.exercises);
-      document.getElementById('workout-sets').value = '';
-      document.getElementById('workout-reps').value = '';
-      document.getElementById('workout-weight').value = '';
       feedback.textContent = '';
       _loadExerciseSuggestions();
-      document.getElementById('workout-sets').focus();
+      document.getElementById('workout-name').focus();
     } else {
       feedback.textContent = data.error || 'Failed to add.';
     }
