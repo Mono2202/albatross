@@ -15,7 +15,10 @@
           <input type="number" id="workout-sets" placeholder="Sets" min="1" required />
           <input type="number" id="workout-reps" placeholder="Reps" min="1" required />
           <input type="text" id="workout-weight" placeholder="Weight" autocomplete="off" required />
-          <button type="submit" class="workout-add-btn">Add</button>
+          <div class="workout-btn-group">
+            <button type="submit" class="workout-add-btn">Add</button>
+            <button type="button" class="workout-clear-btn" onclick="clearWorkoutForm()">Clear</button>
+          </div>
         </div>
         <div id="workout-feedback" class="feedback"></div>
       </form>

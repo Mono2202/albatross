@@ -51,7 +51,7 @@
     grid-template-columns: repeat(3, 1fr);
   }
   .workout-name-wrap,
-  .workout-add-btn { grid-column: 1 / -1; }
+  .workout-btn-group { grid-column: 1 / -1; }
 
   #tab-workout .tasks-row {
     flex-direction: column;
@@ -61,6 +61,11 @@
     flex: unset;
     width: 100%;
   }
+}
+
+.workout-btn-group {
+  display: flex;
+  gap: 8px;
 }
 
 .workout-add-btn {
@@ -75,6 +80,19 @@
   transition: background 0.15s;
 }
 .workout-add-btn:hover { background: var(--accent-hover); }
+
+.workout-clear-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  color: var(--text-muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+.workout-clear-btn:hover { border-color: var(--danger); color: var(--danger); }
 
 .workout-item {
   display: flex;

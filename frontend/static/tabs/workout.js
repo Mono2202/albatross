@@ -151,6 +151,16 @@ async function addExercise(e) {
   }
 }
 
+function clearWorkoutForm() {
+  document.getElementById('workout-name').value = '';
+  document.getElementById('workout-sets').value = '';
+  document.getElementById('workout-reps').value = '';
+  document.getElementById('workout-weight').value = '';
+  document.getElementById('workout-feedback').textContent = '';
+  _hideSuggestions();
+  document.getElementById('workout-name').focus();
+}
+
 async function deleteExercise(index) {
   try {
     const res = await fetch('/workout/delete', {
