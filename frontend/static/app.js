@@ -168,6 +168,7 @@ let habitsLoaded = false;
 let musicLoaded = false;
 let workoutLoaded = false;
 let foodLoaded = false;
+let financeLoaded = false;
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -199,5 +200,9 @@ function switchTab(tab) {
   if (tab === 'food' && !foodLoaded) {
     loadFood();
     foodLoaded = true;
+  }
+  if (tab === 'finance' && !financeLoaded) {
+    loadFinance();
+    financeLoaded = true;
   }
 }

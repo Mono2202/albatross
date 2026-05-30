@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/static/tabs/music.css" />
   <link rel="stylesheet" href="/static/tabs/workout.css" />
   <link rel="stylesheet" href="/static/tabs/food.css" />
+  <link rel="stylesheet" href="/static/tabs/finance.css" />
 </head>
 <body>
   <header>
@@ -35,6 +36,7 @@
       <button class="tab-btn" onclick="switchTab('music')"><img src="/assets/music.svg" alt="Music" /></button>
       <button class="tab-btn" onclick="switchTab('workout')"><img src="/assets/workout.svg" alt="Workout" /></button>
       <button class="tab-btn" onclick="switchTab('food')"><img src="/assets/food.svg" alt="Food" /></button>
+      <button class="tab-btn" onclick="switchTab('finance')"><img src="/assets/finance.svg" alt="Finance" /></button>
     </div>
 
     {% include 'tabs/today.html' %}
@@ -43,6 +45,7 @@
     {% include 'tabs/music.html' %}
     {% include 'tabs/workout.html' %}
     {% include 'tabs/food.html' %}
+    {% include 'tabs/finance.html' %}
   </div>
 
   <script src="/static/app.js"></script>
@@ -52,6 +55,7 @@
   <script src="/static/tabs/music.js"></script>
   <script src="/static/tabs/workout.js"></script>
   <script src="/static/tabs/food.js"></script>
+  <script src="/static/tabs/finance.js"></script>
   <script>switchTab(localStorage.getItem('activeTab') || 'today');</script>
 </body>
 </html>
