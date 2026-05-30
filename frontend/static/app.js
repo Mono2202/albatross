@@ -163,12 +163,12 @@ function playCompletionFeedback() {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-let todayLoaded = false;
 let planningLoaded = false;
 let habitsLoaded = false;
 let musicLoaded = false;
 let workoutLoaded = false;
 let foodLoaded = false;
+let financeLoaded = false;
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -177,9 +177,8 @@ function switchTab(tab) {
   document.getElementById(`tab-${tab}`).classList.add('active');
   localStorage.setItem('activeTab', tab);
 
-  if (tab === 'today' && !todayLoaded) {
+  if (tab === 'today') {
     loadTasks();
-    todayLoaded = true;
   }
   if (tab === 'planning' && !planningLoaded) {
     loadNextTasks();
@@ -201,5 +200,9 @@ function switchTab(tab) {
   if (tab === 'food' && !foodLoaded) {
     loadFood();
     foodLoaded = true;
+  }
+  if (tab === 'finance' && !financeLoaded) {
+    loadFinance();
+    financeLoaded = true;
   }
 }

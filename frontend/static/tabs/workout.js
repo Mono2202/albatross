@@ -39,6 +39,7 @@ function _hideSuggestions() {
 }
 
 async function loadWorkout() {
+  clearWorkoutForm();
   document.getElementById('workout-list').innerHTML = loadingHtml();
   try {
     const res = await fetch('/workout/today');
@@ -78,6 +79,20 @@ function _groupExercises(exercises) {
   return groups;
 }
 
+function _mergeIdenticalSets(sets) {
+  const merged = [];
+  sets.forEach(s => {
+    const key = `${s.sets}|${s.reps}|${s.weight || ''}`;
+    const last = merged[merged.length - 1];
+    if (last && last.key === key) {
+      last.items.push(s);
+    } else {
+      merged.push({ key, items: [s] });
+    }
+  });
+  return merged;
+}
+
 function renderWorkoutList(exercises) {
   const el = document.getElementById('workout-list');
   if (!exercises.length) {
@@ -85,10 +100,14 @@ function renderWorkoutList(exercises) {
     return;
   }
   el.innerHTML = _groupExercises(exercises).map(group => {
-    const rows = group.sets.map(s => `<div class="workout-set-row">
-        <span class="workout-set-stats">${_exStats(s)}</span>
-        <button class="workout-delete-btn" onclick="deleteExercise(${s.flatIndex})" title="Remove">&times;</button>
-      </div>`).join('');
+    const rows = _mergeIdenticalSets(group.sets).map(sg => {
+      const totalSets = sg.items.reduce((acc, s) => acc + s.sets, 0);
+      const lastIndex = sg.items[sg.items.length - 1].flatIndex;
+      return `<div class="workout-set-row">
+        <span class="workout-set-stats">${_exStats({ ...sg.items[0], sets: totalSets })}</span>
+        <button class="workout-delete-btn" onclick="deleteExercise(${lastIndex})" title="Remove">&times;</button>
+      </div>`;
+    }).join('');
     return `<div class="workout-item">
       <span class="workout-item-name">${escapeHtml(group.name)}</span>
       <div class="workout-set-rows">${rows}</div>
@@ -106,7 +125,18 @@ function renderWorkoutHistory(history) {
     const date = new Date(session.date + 'T00:00:00');
     const label = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
     const cards = _groupExercises(session.exercises).map(group => {
-      const rows = group.sets.map(s => `<div class="workout-set-row"><span class="workout-set-stats">${_exStats(s)}</span></div>`).join('');
+      const rows = _mergeIdenticalSets(group.sets).map(sg => {
+        const totalSets = sg.items.reduce((acc, s) => acc + s.sets, 0);
+        const s = sg.items[0];
+        return `<div class="workout-set-row workout-history-row-clickable"
+          data-name="${escapeHtml(group.name)}"
+          data-sets="${s.sets}"
+          data-reps="${s.reps}"
+          data-weight="${escapeHtml(s.weight || '')}"
+          onclick="_fillFormFromHistory(this)">
+          <span class="workout-set-stats">${_exStats({ ...s, sets: totalSets })}</span>
+        </div>`;
+      }).join('');
       return `<div class="workout-history-ex">
         <span class="workout-history-ex-name">${escapeHtml(group.name)}</span>
         <div class="workout-set-rows">${rows}</div>
@@ -137,18 +167,34 @@ async function addExercise(e) {
     if (res.ok) {
       playCompletionFeedback();
       renderWorkoutList(data.exercises);
-      document.getElementById('workout-sets').value = '';
-      document.getElementById('workout-reps').value = '';
-      document.getElementById('workout-weight').value = '';
       feedback.textContent = '';
       _loadExerciseSuggestions();
-      document.getElementById('workout-sets').focus();
+      document.getElementById('workout-name').focus();
     } else {
       feedback.textContent = data.error || 'Failed to add.';
     }
   } catch (_) {
     feedback.textContent = 'Request failed.';
   }
+}
+
+function _fillFormFromHistory(el) {
+  document.getElementById('workout-name').value = el.dataset.name;
+  document.getElementById('workout-sets').value = el.dataset.sets;
+  document.getElementById('workout-reps').value = el.dataset.reps;
+  document.getElementById('workout-weight').value = el.dataset.weight;
+  document.getElementById('workout-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('workout-sets').focus();
+}
+
+function clearWorkoutForm() {
+  document.getElementById('workout-name').value = '';
+  document.getElementById('workout-sets').value = '';
+  document.getElementById('workout-reps').value = '';
+  document.getElementById('workout-weight').value = '';
+  document.getElementById('workout-feedback').textContent = '';
+  _hideSuggestions();
+  document.getElementById('workout-name').focus();
 }
 
 async function deleteExercise(index) {

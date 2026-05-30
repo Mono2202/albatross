@@ -5,6 +5,7 @@ from .habits import Habits
 from .workout import Workout
 from .music import Music
 from .food import Food
+from .finance import Finance
 
 
 class Vault:
@@ -39,3 +40,6 @@ class Vault:
             reviews_path=abspath(os.getenv("OBSIDIAN_FOOD_PATH", "")),
             assets_path=abspath(os.getenv("OBSIDIAN_FOOD_ASSETS_PATH", "")),
         ) if os.getenv("OBSIDIAN_FOOD_PATH") else None
+        self.finance = Finance(
+            finance_path=abspath(os.getenv("OBSIDIAN_FINANCE_PATH", "")),
+        ) if os.getenv("OBSIDIAN_FINANCE_PATH") else None
