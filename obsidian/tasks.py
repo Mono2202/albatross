@@ -77,6 +77,7 @@ class Tasks(ObsidianBase):
                             "scheduled": sched_date,
                             "start": start_date,
                             "time": task_time,
+                            "recur": has_supported_recur.group(1) if has_supported_recur else None,
                             "raw_line": line,
                             "completable": completable,
                         }
