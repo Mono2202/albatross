@@ -52,6 +52,12 @@ def assets(filename):
         os.path.join(os.path.dirname(__file__), 'frontend', 'assets'), filename
     )
 
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory(
+        os.path.join(os.path.dirname(__file__), 'frontend', 'assets'), 'manifest.json'
+    )
+
 _daily_open_date = None
 
 @app.route('/')
