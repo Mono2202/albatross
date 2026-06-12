@@ -1,0 +1,16 @@
+{
+  "name": "MonoVault Board",
+  "short_name": "MonoVault",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    {
+      "src": "/assets/logo.png",
+      "sizes": "480x480",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
