@@ -39,17 +39,39 @@ function startRestTimer() {
     if (_restRemaining <= 0) {
       clearInterval(_restInterval);
       _restInterval = null;
-      document.getElementById('rest-timer-section').style.display = 'none';
-      fetch('/workout/rest-done', { method: 'POST' }).catch(() => {});
+      _restTimerDone();
     }
   }, 1000);
 }
 
 function resetRestTimer() { startRestTimer(); }
 
+function _restTimerDone() {
+  playCompletionFeedback();
+  const section = document.getElementById('rest-timer-section');
+  section.classList.add('rest-timer-done');
+  document.getElementById('rest-timer-display').textContent = 'Go! 💪';
+  document.getElementById('rest-timer-bar').style.width = '0%';
+  fetch('/workout/rest-done', { method: 'POST' }).catch(() => {});
+  setTimeout(() => {
+    section.style.transition = 'opacity 0.6s';
+    section.style.opacity = '0';
+    setTimeout(() => {
+      section.style.display = 'none';
+      section.style.opacity = '1';
+      section.style.transition = '';
+      section.classList.remove('rest-timer-done');
+    }, 600);
+  }, 2500);
+}
+
 function stopRestTimer() {
   if (_restInterval) { clearInterval(_restInterval); _restInterval = null; }
-  document.getElementById('rest-timer-section').style.display = 'none';
+  const section = document.getElementById('rest-timer-section');
+  section.style.display = 'none';
+  section.style.opacity = '1';
+  section.style.transition = '';
+  section.classList.remove('rest-timer-done');
 }
 
 async function _loadExerciseSuggestions() {
