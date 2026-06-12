@@ -25,6 +25,7 @@ app = Flask(
     template_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'templates'),
     static_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'static'),
 )
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # cache static files for 1 hour
 
 logger = get_logger(__name__)
 
@@ -82,7 +83,7 @@ app.register_blueprint(create_food_blueprint(vault.food, logger))
 app.register_blueprint(create_finance_blueprint(vault.finance, logger))
 
 def main():
-    app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False)
+    app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False, threaded=True)
 
 if __name__ == '__main__':
     main()
