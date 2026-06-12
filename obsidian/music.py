@@ -70,7 +70,7 @@ class Music:
             path = self._file_path(track, custom_album_name)
             if not path.exists():
                 if custom_album_name:
-                    self._create_custom_file(path, track, rating, notes)
+                    self._create_custom_file(path, track, rating, notes, custom_album_name)
                 else:
                     self._create_file(path, track, rating, notes)
             else:
@@ -193,18 +193,61 @@ class Music:
         path.write_text(self._recalculate_rating("\n".join(lines) + "\n"), encoding="utf-8")
         logger.info(f"Updated album review: {track.album_name} — {track.track_name} ({rating}/10)")
 
-    def _create_custom_file(self, path: Path, track: TrackInfo, rating: int, notes: str) -> None:
+    def _create_custom_file(self, path: Path, track: TrackInfo, rating: int, notes: str,
+                            custom_album_name: str) -> None:
         notes_cell = notes.replace("\n", "<br><br>")
         rating_str = f"{self._stars(rating)} ({rating}/10)"
         row = self._build_row(["", track.track_name, rating_str, "", notes_cell])
-        content = "\n".join([
+
+        cover_filename = None
+        cover_bytes = self._search_cover_image(custom_album_name)
+        if cover_bytes:
+            timestamp_ms = int(time.time() * 1000)
+            cover_filename = f"{self._sanitize(custom_album_name)}-{timestamp_ms}.png"
+            try:
+                (self._assets / cover_filename).write_bytes(cover_bytes)
+            except Exception as e:
+                logger.warning(f"Failed to save cover image: {e}")
+                cover_filename = None
+
+        lines = ["---", "rating: 0.00"]
+        if cover_filename:
+            lines.append(f"cover: {cover_filename}")
+        lines.append("---")
+        if cover_filename:
+            lines += [f"![[{cover_filename}|135]]", ""]
+        lines += [
+            "### Tracks",
             "| No. | Track | Rating | Symbol | Notes |",
             "| --- | ----- | ------ | ------ | ----- |",
             row,
             "",
-        ])
-        path.write_text(content, encoding="utf-8")
+        ]
+        path.write_text(self._recalculate_rating("\n".join(lines) + "\n"), encoding="utf-8")
         logger.info(f"Created custom album file: {path.name}")
+
+    @staticmethod
+    def _search_cover_image(query: str):
+        import time as _time
+        try:
+            from ddgs import DDGS
+            for attempt in range(3):
+                try:
+                    with DDGS() as ddgs:
+                        results = list(ddgs.images(f"{query} logo png", max_results=1))
+                    if results:
+                        response = requests.get(results[0]['image'], timeout=10)
+                        response.raise_for_status()
+                        return response.content
+                    break
+                except Exception as e:
+                    if 'Ratelimit' in str(e) and attempt < 2:
+                        _time.sleep(2 ** attempt)
+                        continue
+                    raise
+        except Exception as e:
+            logger.warning(f"Cover image search failed for '{query}': {e}")
+        return None
 
     def _file_path(self, track: TrackInfo, custom_name: str = "") -> Path:
         name = custom_name if custom_name else track.album_name
