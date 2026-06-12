@@ -25,6 +25,7 @@ app = Flask(
     template_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'templates'),
     static_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'static'),
 )
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # no cache during development
 
 logger = get_logger(__name__)
 
@@ -44,7 +45,9 @@ vault = Vault(vault_path=os.getenv("OBSIDIAN_VAULT_PATH"), spotify=_spotify)
 pushover = Pushover(api_token=os.getenv("PUSHOVER_API_TOKEN"), user_key=os.getenv("PUSHOVER_USER_KEY"))
 
 tasks_store = {}
-reminder.start(vault.tasks, pushover, tasks_store, interval=FETCH_TASKS_INTERVAL)
+reminder.start(vault.tasks, vault.habits, pushover, tasks_store, interval=FETCH_TASKS_INTERVAL,
+               daily_summary_time=os.getenv("DAILY_SUMMARY_TIME", ""),
+               habits_reminder_time=os.getenv("DAILY_HABITS_TIME", ""))
 
 @app.route('/assets/<path:filename>')
 def assets(filename):
@@ -76,12 +79,12 @@ def index():
 app.register_blueprint(create_tasks_blueprint(vault.tasks, tasks_store, logger))
 app.register_blueprint(create_habits_blueprint(vault.habits, logger))
 app.register_blueprint(create_music_blueprint(_spotify, vault.music, logger, _spotify_error))
-app.register_blueprint(create_workout_blueprint(vault.workout, logger))
+app.register_blueprint(create_workout_blueprint(vault.workout, logger, pushover))
 app.register_blueprint(create_food_blueprint(vault.food, logger))
 app.register_blueprint(create_finance_blueprint(vault.finance, logger))
 
 def main():
-    app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False)
+    app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False, threaded=True)
 
 if __name__ == '__main__':
     main()

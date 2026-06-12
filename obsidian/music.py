@@ -59,11 +59,20 @@ class Music:
                 changed += 1
         return changed
 
-    def upsert_review(self, track: TrackInfo, rating: int, notes: str, album_mode: bool = True) -> None:
+    def get_albums(self) -> list:
+        return sorted(
+            p.stem for p in self._root.glob("*.md")
+        )
+
+    def upsert_review(self, track: TrackInfo, rating: int, notes: str,
+                      album_mode: bool = True, custom_album_name: str = "") -> None:
         if album_mode:
-            path = self._file_path(track)
+            path = self._file_path(track, custom_album_name)
             if not path.exists():
-                self._create_file(path, track, rating, notes)
+                if custom_album_name:
+                    self._create_custom_file(path, track, rating, notes, custom_album_name)
+                else:
+                    self._create_file(path, track, rating, notes)
             else:
                 self._update_file(path, track, rating, notes)
         else:
@@ -73,17 +82,18 @@ class Music:
             else:
                 self._update_song_file(path, track, rating, notes)
 
-    def get_existing_review(self, track: TrackInfo, album_mode: bool = True) -> tuple[int, str] | None:
+    def get_existing_review(self, track: TrackInfo, album_mode: bool = True,
+                            custom_album_name: str = "") -> tuple[int, str] | None:
         if album_mode:
-            return self._get_album_review(track)
+            return self._get_album_review(track, custom_album_name)
         return self._get_song_review(track)
 
     # ------------------------------------------------------------------ #
     # Album mode
     # ------------------------------------------------------------------ #
 
-    def _get_album_review(self, track: TrackInfo) -> tuple[int, str] | None:
-        path = self._file_path(track)
+    def _get_album_review(self, track: TrackInfo, custom_album_name: str = "") -> tuple[int, str] | None:
+        path = self._file_path(track, custom_album_name)
         if not path.exists():
             return None
         content = path.read_text(encoding="utf-8")
@@ -160,6 +170,7 @@ class Music:
         lines = content.splitlines()
         notes_cell = notes.replace("\n", "<br><br>")
         rating_str = f"{self._stars(rating)} ({rating}/10)"
+        found = False
         for i, line in enumerate(lines):
             if not line.startswith("|"):
                 continue
@@ -170,12 +181,77 @@ class Music:
                 cells[2] = rating_str
                 cells[4] = notes_cell
                 lines[i] = self._build_row(cells)
+                found = True
                 break
+        if not found:
+            new_row = self._build_row(["", track.track_name, rating_str, "", notes_cell])
+            last_table_idx = max(
+                (i for i, l in enumerate(lines) if l.strip().startswith("|")),
+                default=len(lines) - 1,
+            )
+            lines.insert(last_table_idx + 1, new_row)
         path.write_text(self._recalculate_rating("\n".join(lines) + "\n"), encoding="utf-8")
         logger.info(f"Updated album review: {track.album_name} — {track.track_name} ({rating}/10)")
 
-    def _file_path(self, track: TrackInfo) -> Path:
-        return self._root / f"{self._sanitize(track.album_name)}.md"
+    def _create_custom_file(self, path: Path, track: TrackInfo, rating: int, notes: str,
+                            custom_album_name: str) -> None:
+        notes_cell = notes.replace("\n", "<br><br>")
+        rating_str = f"{self._stars(rating)} ({rating}/10)"
+        row = self._build_row(["", track.track_name, rating_str, "", notes_cell])
+
+        cover_filename = None
+        cover_bytes = self._search_cover_image(custom_album_name)
+        if cover_bytes:
+            timestamp_ms = int(time.time() * 1000)
+            cover_filename = f"{self._sanitize(custom_album_name)}-{timestamp_ms}.png"
+            try:
+                (self._assets / cover_filename).write_bytes(cover_bytes)
+            except Exception as e:
+                logger.warning(f"Failed to save cover image: {e}")
+                cover_filename = None
+
+        lines = ["---", "rating: 0.00"]
+        if cover_filename:
+            lines.append(f"cover: {cover_filename}")
+        lines.append("---")
+        if cover_filename:
+            lines += [f"![[{cover_filename}|135]]", ""]
+        lines += [
+            "### Tracks",
+            "| No. | Track | Rating | Symbol | Notes |",
+            "| --- | ----- | ------ | ------ | ----- |",
+            row,
+            "",
+        ]
+        path.write_text(self._recalculate_rating("\n".join(lines) + "\n"), encoding="utf-8")
+        logger.info(f"Created custom album file: {path.name}")
+
+    @staticmethod
+    def _search_cover_image(query: str):
+        import time as _time
+        try:
+            from ddgs import DDGS
+            for attempt in range(3):
+                try:
+                    with DDGS() as ddgs:
+                        results = list(ddgs.images(f"{query} logo png", max_results=1))
+                    if results:
+                        response = requests.get(results[0]['image'], timeout=10)
+                        response.raise_for_status()
+                        return response.content
+                    break
+                except Exception as e:
+                    if 'Ratelimit' in str(e) and attempt < 2:
+                        _time.sleep(2 ** attempt)
+                        continue
+                    raise
+        except Exception as e:
+            logger.warning(f"Cover image search failed for '{query}': {e}")
+        return None
+
+    def _file_path(self, track: TrackInfo, custom_name: str = "") -> Path:
+        name = custom_name if custom_name else track.album_name
+        return self._root / f"{self._sanitize(name)}.md"
 
     # ------------------------------------------------------------------ #
     # Song mode

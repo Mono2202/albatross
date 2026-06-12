@@ -1,6 +1,78 @@
 let _exerciseSuggestions = [];
 let _filteredSuggestions = [];
-let _workoutRecords = {};  // name -> { weight, weight_num, date }
+let _workoutRecords = {};
+
+let _restDuration = parseInt(localStorage.getItem('restTimerDuration') || '90');
+let _restRemaining = 0;
+let _restInterval = null;
+
+function _adjustRestDuration(delta) {
+  _restDuration = Math.max(15, Math.min(600, _restDuration + delta));
+  localStorage.setItem('restTimerDuration', _restDuration);
+  _updateRestDurLabel();
+  if (_restInterval) { stopRestTimer(); startRestTimer(); }
+}
+
+function _updateRestDurLabel() {
+  const m = Math.floor(_restDuration / 60), s = _restDuration % 60;
+  document.getElementById('rest-timer-dur-label').textContent =
+    m > 0 ? `${m}:${String(s).padStart(2,'0')}` : `${s}s`;
+}
+
+function _updateRestDisplay() {
+  const m = Math.floor(_restRemaining / 60), s = _restRemaining % 60;
+  document.getElementById('rest-timer-display').textContent =
+    `${m}:${String(s).padStart(2,'0')}`;
+  document.getElementById('rest-timer-bar').style.width =
+    `${(_restRemaining / _restDuration) * 100}%`;
+}
+
+function startRestTimer() {
+  stopRestTimer();
+  _restRemaining = _restDuration;
+  _updateRestDurLabel();
+  _updateRestDisplay();
+  document.getElementById('rest-timer-section').style.display = 'block';
+  _restInterval = setInterval(() => {
+    _restRemaining--;
+    _updateRestDisplay();
+    if (_restRemaining <= 0) {
+      clearInterval(_restInterval);
+      _restInterval = null;
+      _restTimerDone();
+    }
+  }, 1000);
+}
+
+function resetRestTimer() { startRestTimer(); }
+
+function _restTimerDone() {
+  playCompletionFeedback();
+  const section = document.getElementById('rest-timer-section');
+  section.classList.add('rest-timer-done');
+  document.getElementById('rest-timer-display').textContent = 'Go! 💪';
+  document.getElementById('rest-timer-bar').style.width = '0%';
+  fetch('/workout/rest-done', { method: 'POST' }).catch(() => {});
+  setTimeout(() => {
+    section.style.transition = 'opacity 0.6s';
+    section.style.opacity = '0';
+    setTimeout(() => {
+      section.style.display = 'none';
+      section.style.opacity = '1';
+      section.style.transition = '';
+      section.classList.remove('rest-timer-done');
+    }, 600);
+  }, 2500);
+}
+
+function stopRestTimer() {
+  if (_restInterval) { clearInterval(_restInterval); _restInterval = null; }
+  const section = document.getElementById('rest-timer-section');
+  section.style.display = 'none';
+  section.style.opacity = '1';
+  section.style.transition = '';
+  section.classList.remove('rest-timer-done');
+}
 
 async function _loadExerciseSuggestions() {
   try {
@@ -179,6 +251,7 @@ async function addExercise(e) {
       feedback.textContent = isNewPR ? '🏆 New personal record!' : '';
       _loadExerciseSuggestions();
       if (isNewPR) loadWorkoutRecords();
+      startRestTimer();
       document.getElementById('workout-name').focus();
     } else {
       feedback.textContent = data.error || 'Failed to add.';
