@@ -29,16 +29,31 @@ def _send_daily_summary(tasks_store, pushover):
     if not tasks:
         return
     lines = [f"• {_clean(t['task'])}" for t in tasks]
-    count = len(lines)
-    message = "\n".join(lines)
-    pushover.send_message(message=message, title=f"📋 Today's Tasks ({count})")
-    logger.info(f"Daily summary sent: {count} tasks")
+    pushover.send_message(message="\n".join(lines), title=f"📋 Today's Tasks ({len(lines)})")
+    logger.info(f"Daily task summary sent: {len(lines)} tasks")
 
 
-def _worker(obsidian, pushover, tasks_store, interval, daily_summary_time):
+def _send_habits_reminder(habits_obsidian, pushover):
+    try:
+        habits = habits_obsidian.fetch_habits()
+    except Exception as e:
+        logger.error(f"Failed to fetch habits for reminder: {e}")
+        return
+    pending = [h for h in habits if not h.get("done_today")]
+    if not pending:
+        logger.info("Habits reminder: all habits completed, skipping")
+        return
+    lines = [f"• {h['title']}" for h in pending]
+    pushover.send_message(message="\n".join(lines), title=f"🌿 Pending Habits ({len(lines)})")
+    logger.info(f"Habits reminder sent: {len(lines)} pending")
+
+
+def _worker(obsidian, habits_obsidian, pushover, tasks_store, interval,
+            daily_summary_time, habits_reminder_time):
     logger.info("Reminder background worker started...")
     last_reminded_time = ""
     last_summary_date = ""
+    last_habits_date = ""
 
     while True:
         now = datetime.now()
@@ -65,15 +80,24 @@ def _worker(obsidian, pushover, tasks_store, interval, daily_summary_time):
                 _send_daily_summary(tasks_store, pushover)
                 last_summary_date = today
 
+            if (habits_reminder_time
+                    and current_time_str == habits_reminder_time
+                    and last_habits_date != today
+                    and habits_obsidian):
+                _send_habits_reminder(habits_obsidian, pushover)
+                last_habits_date = today
+
             last_reminded_time = current_time_str
 
         time.sleep(interval)
 
 
-def start(obsidian, pushover, tasks_store, interval, daily_summary_time=""):
+def start(obsidian, habits_obsidian, pushover, tasks_store, interval,
+          daily_summary_time="", habits_reminder_time=""):
     daemon = threading.Thread(
         target=_worker,
-        args=(obsidian, pushover, tasks_store, interval, daily_summary_time),
+        args=(obsidian, habits_obsidian, pushover, tasks_store, interval,
+              daily_summary_time, habits_reminder_time),
         daemon=True,
     )
     daemon.start()
