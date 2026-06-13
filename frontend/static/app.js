@@ -161,10 +161,525 @@ function playCompletionFeedback() {
   } catch (_) {}
 }
 
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function extractTags(raw) {
+  return [...raw.matchAll(/#(\S+)/g)]
+    .map(m => m[0])
+    .filter(t => t !== '#todo');
+}
+
+// ── Tag autocomplete ──────────────────────────────────────────────────────────
+
+let _vaultTags = [];
+let _tagDropdownIndex = -1;
+let _tagDropdownOnSelect = null;
+
+async function _ensureVaultTags() {
+  if (_vaultTags.length) return;
+  try {
+    const res = await fetch('/vault-tags');
+    const data = await res.json();
+    _vaultTags = data.tags;
+  } catch (_) {}
+}
+
+function _showTagSuggestions(inputEl, onSelect) {
+  _tagDropdownOnSelect = onSelect;
+  const query = inputEl.value.trim().replace(/^#+/, '').toLowerCase();
+  const dropdown = document.getElementById('tag-suggestions-dropdown');
+
+  if (!query) { dropdown.style.display = 'none'; return; }
+
+  const matches = _vaultTags.filter(t => t.slice(1).toLowerCase().includes(query)).slice(0, 10);
+  if (!matches.length) { dropdown.style.display = 'none'; return; }
+
+  _tagDropdownIndex = -1;
+  dropdown.innerHTML = matches.map(t =>
+    `<div class="vault-file-option" onclick="_selectTagSuggestion('${escapeHtml(t)}')">${escapeHtml(t)}</div>`
+  ).join('');
+
+  const rect = inputEl.getBoundingClientRect();
+  dropdown.style.top    = (rect.bottom + 4) + 'px';
+  dropdown.style.left   = rect.left + 'px';
+  dropdown.style.width  = Math.max(rect.width, 160) + 'px';
+  dropdown.style.display = 'block';
+}
+
+function _selectTagSuggestion(tag) {
+  document.getElementById('tag-suggestions-dropdown').style.display = 'none';
+  _tagDropdownIndex = -1;
+  if (_tagDropdownOnSelect) _tagDropdownOnSelect(tag);
+}
+
+function _hideTagSuggestions() {
+  document.getElementById('tag-suggestions-dropdown').style.display = 'none';
+  _tagDropdownIndex = -1;
+}
+
+function _tagInputKeydown(e, inputEl, onSelect) {
+  const dropdown = document.getElementById('tag-suggestions-dropdown');
+  if (!dropdown || dropdown.style.display === 'none') return false;
+  const items = dropdown.querySelectorAll('.vault-file-option');
+  if (!items.length) return false;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _tagDropdownIndex = Math.min(_tagDropdownIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _tagDropdownIndex));
+    items[_tagDropdownIndex]?.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _tagDropdownIndex = Math.max(_tagDropdownIndex - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _tagDropdownIndex));
+    items[_tagDropdownIndex]?.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  if (e.key === 'Enter' && _tagDropdownIndex >= 0) {
+    e.preventDefault();
+    _selectTagSuggestion(items[_tagDropdownIndex].textContent.trim());
+    return true;
+  }
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    _hideTagSuggestions();
+    return true;
+  }
+  return false;
+}
+
+function tagBadgeClass(tag) {
+  if (tag === '#next')       return 'tag-next';
+  if (tag === '#someday')    return 'tag-someday';
+  if (tag === '#backburner') return 'tag-backburner';
+  if (tag === '#inline')     return 'tag-inline';
+  if (tag === '#remind')     return 'tag-remind';
+  if (tag.startsWith('#context/')) return 'context';
+  return 'tag-other';
+}
+
+function _fmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function renderTaskBadges(t) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = (t.due && t.due < today) || (t.scheduled && t.scheduled < today);
+  const started = !overdue && t.start && t.start <= today;
+  const scheduledToday = !overdue && t.scheduled === today;
+  const dueToday = !overdue && t.due === today;
+
+  const overdueLabel = overdue ? (t.due && t.due < today ? t.due : t.scheduled) : null;
+  const overdueBadge  = overdue  ? `<span class="badge overdue">Overdue · ${_fmtDate(overdueLabel)}</span>` : '';
+  const startedBadge  = started  ? `<span class="badge started">🛫 ${_fmtDate(t.start)}</span>` : '';
+  const dueBadge      = !overdue && t.due       ? `<span class="badge due">📅 ${_fmtDate(t.due)}</span>` : '';
+  const schedBadge    = !overdue && t.scheduled ? `<span class="badge scheduled">⏳ ${_fmtDate(t.scheduled)}</span>` : '';
+  const timeBadge     = t.time  ? `<span class="badge time">@ ${t.time}</span>` : '';
+  const recurBadge    = t.recur ? `<span class="badge recur">🔁 ${t.recur}</span>` : '';
+
+  const tags = t.tags || extractTags(t.task || '');
+  const tagBadges = tags.map(tag => {
+    const cls = tag === '#next' ? 'tag-next'
+      : tag.startsWith('#context/') ? 'context'
+      : 'tag-other';
+    return `<span class="badge ${cls}">${escapeHtml(tag)}</span>`;
+  }).join('');
+
+  const fileBadge = t.rel_path
+    ? `<span class="badge file" style="${folderBadgeStyle(t.top_folder)};cursor:pointer" data-path="${escapeHtml(t.rel_path)}" onclick="event.stopPropagation(); openObsidianFile(this.dataset.path)">${escapeHtml(t.file)}</span>`
+    : (t.file ? `<span class="badge file" style="${folderBadgeStyle(t.top_folder)}">${escapeHtml(t.file)}</span>` : '');
+
+  const cls = overdue ? ' overdue' : (scheduledToday || dueToday) ? ' scheduled-today' : started ? ' started' : '';
+
+  return {
+    html: `${overdueBadge}${startedBadge}${dueBadge}${schedBadge}${timeBadge}${recurBadge}${tagBadges}${fileBadge}`,
+    cls,
+  };
+}
+
+// ── Next action modal ─────────────────────────────────────────────────────────
+
+let _nextActionRelPath = null;
+let _nextActionInlineTasks = [];
+let _nextActionSelectedRawLine = null;
+let _nextActionKbIndex = -1;
+let _nextActionTags = [];
+
+async function openNextActionModal(relPath, file) {
+  _nextActionRelPath = relPath;
+  _nextActionSelectedRawLine = null;
+  _nextActionKbIndex = -1;
+  _nextActionTags = [];
+  _nextActionInlineTasks = [];
+
+  document.getElementById('next-action-description').value = '';
+  document.getElementById('next-action-due').value = '';
+  document.getElementById('next-action-scheduled').value = '';
+  document.getElementById('next-action-start').value = '';
+  document.getElementById('next-action-time').value = '';
+  document.getElementById('next-action-recur').value = '';
+  _renderNextActionTags();
+
+  document.getElementById('next-action-file-badge').textContent = file || '';
+  document.getElementById('next-action-inline-section').style.display = 'none';
+  document.getElementById('next-action-new-label').textContent = 'Add a next task';
+  document.getElementById('next-action-modal').style.display = 'flex';
+  _updateNextActionConfirm();
+  _ensureVaultTags();
+
+  try {
+    const res = await fetch(`/task/inline-tasks?rel_path=${encodeURIComponent(relPath)}`);
+    const data = await res.json();
+    _nextActionInlineTasks = data.tasks || [];
+    if (_nextActionInlineTasks.length) {
+      document.getElementById('next-action-inline-section').style.display = 'block';
+      document.getElementById('next-action-new-label').textContent = 'Or add a different next task';
+      _renderNextActionInlineList();
+    }
+  } catch (_) {}
+
+  const descEl = document.getElementById('next-action-description');
+  descEl.style.height = 'auto';
+  descEl.focus();
+}
+
+function closeNextActionModal(e) {
+  if (e && e.target !== document.getElementById('next-action-modal')) return;
+  _closeNextActionModal();
+}
+
+function _closeNextActionModal() {
+  document.getElementById('next-action-modal').style.display = 'none';
+  _nextActionRelPath = null;
+  _nextActionSelectedRawLine = null;
+  loadNextTasks();
+}
+
+function _renderNextActionInlineList() {
+  const list = document.getElementById('next-action-inline-list');
+  list.innerHTML = _nextActionInlineTasks.map((t, i) => {
+    const badges = [
+      t.due       ? `<span class="badge due">📅 ${_fmtDate(t.due)}</span>` : '',
+      t.scheduled ? `<span class="badge scheduled">⏳ ${_fmtDate(t.scheduled)}</span>` : '',
+      t.start     ? `<span class="badge started">🛫 ${_fmtDate(t.start)}</span>` : '',
+      t.time      ? `<span class="badge time">@ ${t.time}</span>` : '',
+      t.recur     ? `<span class="badge recur">🔁 ${t.recur}</span>` : '',
+    ].join('');
+    return `
+      <button class="next-action-option" tabindex="0" data-index="${i}"
+        onclick="_selectNextActionInline(${i})"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();_selectNextActionInline(${i});confirmNextAction();}">
+        <div class="next-action-option-text">${t.description ? escapeHtml(t.description) : '<span style="color:var(--text-muted)">(no description)</span>'}</div>
+        ${badges ? `<div class="task-meta" style="margin-top:5px">${badges}</div>` : ''}
+      </button>`;
+  }).join('');
+}
+
+function _selectNextActionInline(index) {
+  _nextActionSelectedRawLine = _nextActionInlineTasks[index]?.raw_line || null;
+  _nextActionKbIndex = index;
+  document.querySelectorAll('.next-action-option').forEach((el, i) => el.classList.toggle('active', i === index));
+  document.getElementById('next-action-description').value = '';
+  _updateNextActionConfirm();
+}
+
+function _updateNextActionConfirm() {
+  const btn = document.getElementById('next-action-confirm-btn');
+  if (!btn) return;
+  const hasInline = _nextActionSelectedRawLine !== null;
+  const hasNew = (document.getElementById('next-action-description')?.value || '').trim().length > 0;
+  btn.disabled = !hasInline && !hasNew;
+}
+
+function _renderNextActionTags() {
+  const container = document.getElementById('next-action-tags-container');
+  if (!container) return;
+  const input = document.getElementById('next-action-tag-input');
+  container.querySelectorAll('.inbox-tag-chip').forEach(el => el.remove());
+  _nextActionTags.forEach((tag, i) => {
+    const chip = document.createElement('span');
+    chip.className = `badge ${tagBadgeClass(tag)} inbox-tag-chip`;
+    chip.innerHTML = `${escapeHtml(tag)} <button class="inbox-tag-remove" type="button" onclick="removeNextActionTag(${i})">×</button>`;
+    container.insertBefore(chip, input);
+  });
+}
+
+function removeNextActionTag(index) {
+  _nextActionTags.splice(index, 1);
+  _renderNextActionTags();
+}
+
+async function confirmNextAction() {
+  if (!_nextActionRelPath) return;
+  const btn = document.getElementById('next-action-confirm-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+
+  try {
+    let ok = false;
+    if (_nextActionSelectedRawLine) {
+      const res = await fetch('/task/promote-inline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rel_path: _nextActionRelPath, raw_line: _nextActionSelectedRawLine }),
+      });
+      ok = res.ok;
+      if (!ok) { const d = await res.json(); alert(d.error || 'Failed.'); }
+    } else {
+      const description = document.getElementById('next-action-description').value.trim();
+      const res = await fetch('/task/add-next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rel_path: _nextActionRelPath,
+          description,
+          tags: _nextActionTags,
+          due:       document.getElementById('next-action-due').value,
+          scheduled: document.getElementById('next-action-scheduled').value,
+          start:     document.getElementById('next-action-start').value,
+          time:      document.getElementById('next-action-time').value,
+          recur:     document.getElementById('next-action-recur').value,
+        }),
+      });
+      ok = res.ok;
+      if (!ok) { const d = await res.json(); alert(d.error || 'Failed.'); }
+    }
+    if (ok) {
+      document.getElementById('next-action-modal').style.display = 'none';
+      _nextActionRelPath = null;
+      _nextActionSelectedRawLine = null;
+      loadNextTasks();
+    } else {
+      btn.disabled = false;
+    }
+  } catch (_) {
+    alert('Request failed.');
+    btn.disabled = false;
+  }
+}
+
+// ── Task edit popup ───────────────────────────────────────────────────────────
+
+let _currentTask = null;
+let _taskPopupTags = [];
+let _taskPopupSource = null;
+
+function openTaskPopup(task, source) {
+  _currentTask = task;
+  _taskPopupSource = source;
+  _ensureVaultTags();
+
+  document.getElementById('task-popup-description').value = cleanTaskText(task.task);
+  document.getElementById('task-popup-due').value = task.due || '';
+  document.getElementById('task-popup-scheduled').value = task.scheduled || '';
+  document.getElementById('task-popup-start').value = task.start || '';
+  document.getElementById('task-popup-time').value = task.time || '';
+  document.getElementById('task-popup-recur').value = task.recur || '';
+  document.getElementById('task-popup-obsidian-btn').dataset.relPath = task.rel_path || '';
+
+  _taskPopupTags = extractTags(task.task);
+  _renderTaskPopupTags();
+
+  const modal = document.getElementById('task-edit-modal');
+  modal.style.display = 'flex';
+  const desc = document.getElementById('task-popup-description');
+  desc.style.height = 'auto';
+  desc.style.height = desc.scrollHeight + 'px';
+  desc.focus();
+}
+
+function closeTaskPopup(e) {
+  if (e && e.target !== document.getElementById('task-edit-modal')) return;
+  _closeTaskPopup();
+}
+
+function _closeTaskPopup() {
+  document.getElementById('task-edit-modal').style.display = 'none';
+  _currentTask = null;
+}
+
+function _renderTaskPopupTags() {
+  const container = document.getElementById('task-popup-tags-container');
+  const input = document.getElementById('task-popup-tag-input');
+  container.querySelectorAll('.inbox-tag-chip').forEach(el => el.remove());
+  _taskPopupTags.forEach((tag, i) => {
+    const chip = document.createElement('span');
+    chip.className = `badge ${tagBadgeClass(tag)} inbox-tag-chip`;
+    chip.innerHTML = `${escapeHtml(tag)} <button class="inbox-tag-remove" type="button" onclick="removeTaskPopupTag(${i})">×</button>`;
+    container.insertBefore(chip, input);
+  });
+}
+
+function removeTaskPopupTag(index) {
+  _taskPopupTags.splice(index, 1);
+  _renderTaskPopupTags();
+}
+
+function _buildTaskNewLine() {
+  const description = document.getElementById('task-popup-description').value.trim();
+  const due = document.getElementById('task-popup-due').value;
+  const scheduled = document.getElementById('task-popup-scheduled').value;
+  const start = document.getElementById('task-popup-start').value;
+  const time = document.getElementById('task-popup-time').value;
+  const recur = document.getElementById('task-popup-recur').value;
+
+  const parts = ['- [ ] #todo'];
+  if (description) parts.push(description);
+  _taskPopupTags.forEach(t => parts.push(t));
+  if (due) parts.push(`📅 ${due}`);
+  if (scheduled) parts.push(`⏳ ${scheduled}`);
+  if (start) parts.push(`🛫 ${start}`);
+  if (time) parts.push(`@${time}`);
+  if (recur) parts.push(`🔁 ${recur}`);
+
+  return parts.join(' ') + '\n';
+}
+
+async function saveTaskPopup() {
+  if (!_currentTask) return;
+  const newLine = _buildTaskNewLine();
+  try {
+    const res = await fetch('/task/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rel_path: _currentTask.rel_path,
+        raw_line: _currentTask.raw_line,
+        new_line: newLine,
+      }),
+    });
+    if (res.ok) {
+      _closeTaskPopup();
+      if (_taskPopupSource === 'today') loadTasks();
+      else if (_taskPopupSource === 'next') loadNextTasks();
+      else if (_taskPopupSource === 'upcoming') loadUpcomingTasks();
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to save.');
+    }
+  } catch (_) {
+    alert('Request failed.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tagInput = document.getElementById('task-popup-tag-input');
+  if (tagInput) {
+    const onSelect = tag => {
+      if (!_taskPopupTags.includes(tag)) { _taskPopupTags.push(tag); _renderTaskPopupTags(); }
+      tagInput.value = '';
+      _hideTagSuggestions();
+    };
+    tagInput.addEventListener('input', () => _showTagSuggestions(tagInput, onSelect));
+    tagInput.addEventListener('keydown', e => {
+      if (_tagInputKeydown(e, tagInput, onSelect)) return;
+      if (e.key !== 'Enter' && e.key !== ',') return;
+      e.preventDefault();
+      const val = tagInput.value.trim().replace(/^#+/, '');
+      if (!val) return;
+      onSelect('#' + val);
+    });
+  }
+
+  const taskDesc = document.getElementById('task-popup-description');
+  if (taskDesc) {
+    taskDesc.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
+    });
+  }
+
+  document.addEventListener('keydown', e => {
+    const modal = document.getElementById('task-edit-modal');
+    if (!modal || modal.style.display === 'none') return;
+    if (e.key === 'Escape') {
+      _closeTaskPopup();
+    } else if (e.key === 'Enter') {
+      const id = e.target.id;
+      if (id === 'task-popup-tag-input') return;
+      e.preventDefault();
+      saveTaskPopup();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    const modal = document.getElementById('next-action-modal');
+    if (!modal || modal.style.display === 'none') return;
+
+    if (e.key === 'Escape') { _closeNextActionModal(); return; }
+
+    if (e.key === 'Enter' && e.target.id !== 'next-action-description' && e.target.id !== 'next-action-tag-input') {
+      e.preventDefault();
+      confirmNextAction();
+      return;
+    }
+
+    const options = document.querySelectorAll('.next-action-option');
+    if (!options.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (_nextActionKbIndex < options.length - 1) {
+        _selectNextActionInline(_nextActionKbIndex + 1);
+        options[_nextActionKbIndex]?.focus();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (_nextActionKbIndex > 0) {
+        _selectNextActionInline(_nextActionKbIndex - 1);
+        options[_nextActionKbIndex]?.focus();
+      } else if (_nextActionKbIndex === 0) {
+        _nextActionSelectedRawLine = null;
+        _nextActionKbIndex = -1;
+        document.querySelectorAll('.next-action-option').forEach(el => el.classList.remove('active'));
+        document.getElementById('next-action-description').focus();
+        _updateNextActionConfirm();
+      }
+    }
+  });
+
+  const naDesc = document.getElementById('next-action-description');
+  if (naDesc) {
+    naDesc.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
+      if (_nextActionSelectedRawLine !== null) {
+        _nextActionSelectedRawLine = null;
+        _nextActionKbIndex = -1;
+        document.querySelectorAll('.next-action-option').forEach(el => el.classList.remove('active'));
+      }
+      _updateNextActionConfirm();
+    });
+  }
+
+  const naTagInput = document.getElementById('next-action-tag-input');
+  if (naTagInput) {
+    const onSelect = tag => {
+      if (!_nextActionTags.includes(tag)) { _nextActionTags.push(tag); _renderNextActionTags(); }
+      naTagInput.value = '';
+      _hideTagSuggestions();
+    };
+    naTagInput.addEventListener('input', () => _showTagSuggestions(naTagInput, onSelect));
+    naTagInput.addEventListener('keydown', e => {
+      if (_tagInputKeydown(e, naTagInput, onSelect)) return;
+      if (e.key !== 'Enter' && e.key !== ',') return;
+      e.preventDefault();
+      const val = naTagInput.value.trim().replace(/^#+/, '');
+      if (!val) return;
+      onSelect('#' + val);
+    });
+  }
+});
+
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
 let planningLoaded = false;
 let habitsLoaded = false;
+let inboxLoaded = false;
 let musicLoaded = false;
 let workoutLoaded = false;
 let foodLoaded = false;
@@ -184,6 +699,10 @@ function switchTab(tab) {
     loadNextTasks();
     loadUpcomingTasks();
     planningLoaded = true;
+  }
+  if (tab === 'inbox' && !inboxLoaded) {
+    loadInboxItems();
+    inboxLoaded = true;
   }
   if (tab === 'habits' && !habitsLoaded) {
     loadHabits();
