@@ -7,6 +7,7 @@ from .workout import Workout
 from .music import Music
 from .food import Food
 from .finance import Finance
+from .pages import Pages
 
 
 class Vault:
@@ -55,3 +56,8 @@ class Vault:
             finance_path=abspath(os.getenv("OBSIDIAN_FINANCE_PATH", "")),
             subscriptions_path=abspath(os.getenv("OBSIDIAN_SUBSCRIPTIONS_PATH", "")),
         ) if os.getenv("OBSIDIAN_FINANCE_PATH") else None
+        self.pages = Pages(
+            vault_path,
+            archive_path=abspath(os.getenv("OBSIDIAN_ARCHIVE_PATH", "")),
+            ignore_dirs=ignore_dirs,
+        )

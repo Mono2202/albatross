@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/static/tabs/food.css" />
   <link rel="stylesheet" href="/static/tabs/finance.css" />
   <link rel="stylesheet" href="/static/tabs/inbox.css" />
+  <link rel="stylesheet" href="/static/tabs/pages.css" />
 </head>
 <body>
   <header>
@@ -57,6 +58,7 @@
       <button class="tab-btn" onclick="switchTab('workout')"><img src="/assets/workout.svg" alt="Workout" /></button>
       <button class="tab-btn" onclick="switchTab('food')"><img src="/assets/food.svg" alt="Food" /></button>
       <button class="tab-btn" onclick="switchTab('finance')"><img src="/assets/finance.svg" alt="Finance" /></button>
+      <button class="tab-btn" onclick="switchTab('pages')"><img src="/assets/pages.svg" alt="Pages" /></button>
     </div>
 
     {% include 'tabs/today.html' %}
@@ -67,6 +69,7 @@
     {% include 'tabs/workout.html' %}
     {% include 'tabs/food.html' %}
     {% include 'tabs/finance.html' %}
+    {% include 'tabs/pages.html' %}
   </div>
 
   <!-- Shared tag autocomplete dropdown -->
@@ -229,8 +232,9 @@
   <script src="/static/tabs/workout.js"></script>
   <script src="/static/tabs/food.js"></script>
   <script src="/static/tabs/finance.js"></script>
+  <script src="/static/tabs/pages.js"></script>
   <script>
-    const _initTab = localStorage.getItem('activeTab') || 'today';
+    const _initTab = location.hash.startsWith('#/pages/') ? 'pages' : (localStorage.getItem('activeTab') || 'today');
     switchTab(_initTab);
     if (_initTab !== 'today') loadTasks();
     if (_initTab !== 'inbox') { loadInboxItems(); inboxLoaded = true; }
