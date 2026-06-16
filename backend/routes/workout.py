@@ -1,5 +1,7 @@
+import uuid
 from datetime import date
 from flask import Blueprint, jsonify, request
+from backend.notifications.rest_timer import start_rest_timer, cancel_rest_timer
 
 
 def create_workout_blueprint(obsidian, logger, pushover=None):
@@ -67,17 +69,31 @@ def create_workout_blueprint(obsidian, logger, pushover=None):
             logger.error(f"Failed to fetch progress for {exercise}: {e}")
             return jsonify({'error': str(e)}), 500
 
-    @bp.route('/workout/rest-done', methods=['POST'])
-    def rest_done():
+    @bp.route('/workout/rest-start', methods=['POST'])
+    def rest_start():
+        data = request.json or {}
+        duration = data.get('duration')
+        if duration is None:
+            return jsonify({'error': 'duration is required'}), 400
         try:
-            if pushover:
-                pushover.send_message(
-                    message="Rest time is up — time for your next set! 💪",
-                    title="Workout Timer"
-                )
+            timer_id = str(uuid.uuid4())
+            start_rest_timer(timer_id, int(duration), pushover)
+            return jsonify({'status': 'ok', 'timer_id': timer_id})
+        except Exception as e:
+            logger.error(f"Failed to start rest timer: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @bp.route('/workout/rest-cancel', methods=['POST'])
+    def rest_cancel():
+        data = request.json or {}
+        timer_id = data.get('timer_id')
+        if not timer_id:
+            return jsonify({'error': 'timer_id is required'}), 400
+        try:
+            cancel_rest_timer(timer_id)
             return jsonify({'status': 'ok'})
         except Exception as e:
-            logger.error(f"Failed to send rest timer notification: {e}")
+            logger.error(f"Failed to cancel rest timer: {e}")
             return jsonify({'error': str(e)}), 500
 
     @bp.route('/workout/records', methods=['GET'])

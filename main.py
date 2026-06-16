@@ -69,7 +69,10 @@ def index():
     global _daily_open_date
     today = date.today()
     if _daily_open_date != today:
-        subprocess.Popen(['obsidian', 'daily:read'])
+        try:
+            subprocess.Popen(['obsidian', 'daily:read'])
+        except FileNotFoundError:
+            logger.warning("obsidian CLI not found; skipping daily:read")
         _daily_open_date = today
     daily_folder = os.getenv("OBSIDIAN_DAILY_PATH", "")
     today_str = today.strftime("%Y-%m-%d")

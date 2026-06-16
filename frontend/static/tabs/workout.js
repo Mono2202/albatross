@@ -6,9 +6,11 @@ let _restDuration = parseInt(localStorage.getItem('restTimerDuration') || '90');
 let _restFullDuration = _restDuration;
 let _restRemaining = 0;
 let _restInterval = null;
+let _restTimerId = null;
 
 const _REST_END_KEY  = 'restTimerEndTime';
 const _REST_DUR_KEY  = 'restTimerFullDuration';
+const _REST_ID_KEY   = 'restTimerId';
 
 function _adjustRestDuration(delta) {
   _restDuration = Math.max(15, Math.min(600, _restDuration + delta));
@@ -57,6 +59,21 @@ function startRestTimer() {
   const endTime = Date.now() + _restDuration * 1000;
   localStorage.setItem(_REST_END_KEY, endTime);
   localStorage.setItem(_REST_DUR_KEY, _restDuration);
+
+  fetch('/workout/rest-start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ duration: _restDuration })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.timer_id) {
+      _restTimerId = data.timer_id;
+      localStorage.setItem(_REST_ID_KEY, _restTimerId);
+    }
+  })
+  .catch(e => console.error('Failed to start server timer:', e));
+
   _startTimerFromEndTime(endTime);
 }
 
@@ -66,6 +83,7 @@ function _resumeRestTimer() {
   const remaining = Math.round((endTime - Date.now()) / 1000);
   if (remaining <= 0) { localStorage.removeItem(_REST_END_KEY); return; }
   _restFullDuration = parseInt(localStorage.getItem(_REST_DUR_KEY) || _restDuration);
+  _restTimerId = localStorage.getItem(_REST_ID_KEY);
   _startTimerFromEndTime(endTime);
 }
 
@@ -77,7 +95,6 @@ function _restTimerDone() {
   section.classList.add('rest-timer-done');
   document.getElementById('rest-timer-display').textContent = 'Go! 💪';
   document.getElementById('rest-timer-bar').style.width = '0%';
-  fetch('/workout/rest-done', { method: 'POST' }).catch(() => {});
   setTimeout(() => {
     section.style.transition = 'opacity 0.6s';
     section.style.opacity = '0';
@@ -92,6 +109,17 @@ function _restTimerDone() {
 
 function stopRestTimer() {
   if (_restInterval) { clearInterval(_restInterval); _restInterval = null; }
+
+  if (_restTimerId) {
+    fetch('/workout/rest-cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timer_id: _restTimerId })
+    }).catch(() => {});
+    _restTimerId = null;
+    localStorage.removeItem(_REST_ID_KEY);
+  }
+
   localStorage.removeItem(_REST_END_KEY);
   const section = document.getElementById('rest-timer-section');
   section.style.display = 'none';
