@@ -1,19 +1,21 @@
 // ── Theme ────────────────────────────────────────────────────────────────────
 
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme) {
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  document.addEventListener('DOMContentLoaded', () => updateThemeIcon(savedTheme));
-}
+const savedTheme = localStorage.getItem('theme') || 'catppuccin';
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.addEventListener('DOMContentLoaded', () => updateThemeIcon(savedTheme));
 
 function updateThemeIcon(theme) {
   const icon = document.getElementById('theme-icon');
-  if (icon) icon.src = theme === 'dark' ? '/assets/dark-theme.svg' : '/assets/light-theme.svg';
+  if (!icon) return;
+  if (theme === 'catppuccin') icon.src = '/assets/cat-theme.svg';
+  else if (theme === 'dark') icon.src = '/assets/dark-theme.svg';
+  else icon.src = '/assets/light-theme.svg';
 }
 
 function toggleTheme() {
   const html = document.documentElement;
-  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const current = html.getAttribute('data-theme');
+  const next = current === 'catppuccin' ? 'dark' : current === 'dark' ? 'light' : 'catppuccin';
   html.setAttribute('data-theme', next);
   localStorage.setItem('theme', next);
   updateThemeIcon(next);

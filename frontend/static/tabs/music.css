@@ -162,8 +162,8 @@
   .star-rating { gap: 1px; }
 }
 
-.star.filled { color: #f5c518; }
-.star.hover  { color: #f5a623; }
+.star.filled { color: #f9e2af; }
+.star.hover  { color: #fab387; }
 
 .music-rating-text {
   font-size: 0.9rem;
