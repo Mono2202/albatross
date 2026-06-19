@@ -44,6 +44,24 @@ function toggleTheme() {
   updateThemeIcon(next);
 }
 
+// ── Body scroll lock (prevents page scroll behind modals on iOS) ──────────────
+
+let _bodyScrollY = 0;
+
+function lockBodyScroll() {
+  _bodyScrollY = window.scrollY;
+  Object.assign(document.body.style, {
+    overflow: 'hidden', position: 'fixed', top: `-${_bodyScrollY}px`, width: '100%',
+  });
+}
+
+function unlockBodyScroll() {
+  Object.assign(document.body.style, {
+    overflow: '', position: '', top: '', width: '',
+  });
+  window.scrollTo(0, _bodyScrollY);
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 document.getElementById('date-label').textContent = new Date().toLocaleDateString(
@@ -432,6 +450,7 @@ async function openNextActionModal(relPath, file) {
   document.getElementById('next-action-inline-section').style.display = 'none';
   document.getElementById('next-action-new-label').textContent = 'Add a next task';
   document.getElementById('next-action-modal').style.display = 'flex';
+  lockBodyScroll();
   _updateNextActionConfirm();
   _ensureVaultTags();
 
@@ -458,6 +477,7 @@ function closeNextActionModal(e) {
 
 function _closeNextActionModal() {
   document.getElementById('next-action-modal').style.display = 'none';
+  unlockBodyScroll();
   _nextActionRelPath = null;
   _nextActionSelectedRawLine = null;
   loadNextTasks();
@@ -553,10 +573,7 @@ async function confirmNextAction() {
       if (!ok) { const d = await res.json(); alert(d.error || 'Failed.'); }
     }
     if (ok) {
-      document.getElementById('next-action-modal').style.display = 'none';
-      _nextActionRelPath = null;
-      _nextActionSelectedRawLine = null;
-      loadNextTasks();
+      _closeNextActionModal();
     } else {
       btn.disabled = false;
     }
@@ -594,6 +611,7 @@ function openTaskPopup(task, source) {
 
   const modal = document.getElementById('task-edit-modal');
   modal.style.display = 'flex';
+  lockBodyScroll();
   const desc = document.getElementById('task-popup-description');
   desc.style.height = 'auto';
   desc.style.height = desc.scrollHeight + 'px';
@@ -607,6 +625,7 @@ function closeTaskPopup(e) {
 
 function _closeTaskPopup() {
   document.getElementById('task-edit-modal').style.display = 'none';
+  unlockBodyScroll();
   _currentTask = null;
 }
 
@@ -767,11 +786,19 @@ document.addEventListener('DOMContentLoaded', () => {
     taskTargetInput.addEventListener('keydown', e => _vaultFileInputKeydown(e));
   }
 
-  document.addEventListener('click', e => {
+  const _hideVaultDropdownIfOutside = e => {
     const dropdown = document.getElementById('vault-files-dropdown');
     if (dropdown && !dropdown.contains(e.target) && e.target !== _vaultDropdownActiveInput) {
       dropdown.style.display = 'none';
     }
+  };
+  document.addEventListener('click', _hideVaultDropdownIfOutside);
+  document.addEventListener('touchstart', _hideVaultDropdownIfOutside, { passive: true });
+
+  // Allow independent scroll of dropdowns on iOS
+  ['vault-files-dropdown', 'tag-suggestions-dropdown'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
   });
 
   const taskDesc = document.getElementById('task-popup-description');

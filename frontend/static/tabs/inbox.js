@@ -208,6 +208,7 @@ function openInboxPopup(id) {
 
   _updateModalProgress();
   document.getElementById('inbox-modal').style.display = 'flex';
+  lockBodyScroll();
   const descEl = document.getElementById('popup-description');
   descEl.style.height = 'auto';
   descEl.style.height = descEl.scrollHeight + 'px';
@@ -222,6 +223,7 @@ function closeInboxPopup(e) {
 function _closeInboxPopup() {
   document.getElementById('inbox-modal').style.display = 'none';
   document.getElementById('vault-files-dropdown').style.display = 'none';
+  unlockBodyScroll();
   currentInboxItem = null;
 }
 
