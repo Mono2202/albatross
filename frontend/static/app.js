@@ -333,6 +333,7 @@ function tagBadgeClass(tag) {
   if (tag === '#backburner') return 'tag-backburner';
   if (tag === '#inline')     return 'tag-inline';
   if (tag === '#remind')     return 'tag-remind';
+  if (tag === '#buy')        return 'tag-buy';
   if (tag.startsWith('#context/')) return 'context';
   return 'tag-other';
 }
@@ -352,7 +353,7 @@ function renderTaskBadges(t) {
 
   const overdueLabel = overdue ? (t.due && t.due < today ? t.due : t.scheduled) : null;
   const overdueBadge  = overdue  ? `<span class="badge overdue">Overdue · ${_fmtDate(overdueLabel)}</span>` : '';
-  const startedBadge  = started  ? `<span class="badge started">🛫 ${_fmtDate(t.start)}</span>` : '';
+  const startedBadge  = t.start  ? `<span class="badge started">🛫 ${_fmtDate(t.start)}</span>` : '';
   const dueBadge      = !overdue && t.due       ? `<span class="badge due">📅 ${_fmtDate(t.due)}</span>` : '';
   const schedBadge    = !overdue && t.scheduled ? `<span class="badge scheduled">⏳ ${_fmtDate(t.scheduled)}</span>` : '';
   const timeBadge     = t.time  ? `<span class="badge time">@ ${t.time}</span>` : '';
@@ -361,6 +362,7 @@ function renderTaskBadges(t) {
   const tags = t.tags || extractTags(t.task || '');
   const tagBadges = tags.map(tag => {
     const cls = tag === '#next' ? 'tag-next'
+      : tag === '#buy' ? 'tag-buy'
       : tag.startsWith('#context/') ? 'context'
       : 'tag-other';
     return `<span class="badge ${cls}">${escapeHtml(tag)}</span>`;
@@ -559,7 +561,7 @@ function openTaskPopup(task, source) {
   document.getElementById('task-popup-recur').value = task.recur || '';
   document.getElementById('task-popup-obsidian-btn').dataset.relPath = task.rel_path || '';
   const taskTarget = document.getElementById('task-popup-target');
-  if (taskTarget) { taskTarget.value = ''; }
+  if (taskTarget) { taskTarget.value = task.rel_path || ''; }
   document.getElementById('vault-files-dropdown').style.display = 'none';
 
   _taskPopupTags = extractTags(task.task);
@@ -637,6 +639,27 @@ async function deleteTaskPopup() {
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to delete.');
+    }
+  } catch (_) { alert('Request failed.'); }
+}
+
+async function doneTaskPopup() {
+  if (!_currentTask) return;
+  try {
+    const res = await fetch('/task/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rel_path: _currentTask.rel_path, raw_line: _currentTask.raw_line }),
+    });
+    if (res.ok) {
+      playCompletionFeedback();
+      _closeTaskPopup();
+      if (_taskPopupSource === 'today') loadTasks();
+      else if (_taskPopupSource === 'next') loadNextTasks();
+      else if (_taskPopupSource === 'upcoming') loadUpcomingTasks();
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to complete.');
     }
   } catch (_) { alert('Request failed.'); }
 }
@@ -740,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (e.key === 'Enter') {
       const id = e.target.id;
       if (id === 'task-popup-tag-input') return;
+      if (id === 'task-popup-description' && e.shiftKey) return;
       e.preventDefault();
       saveTaskPopup();
     }

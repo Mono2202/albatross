@@ -95,14 +95,15 @@ h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: var(--text-m
   background: var(--input-bg);
   border-radius: 8px;
   border: 1px solid var(--border);
+  border-left: 3px solid transparent;
   transition: opacity 0.2s;
 }
 
 .task-item.completing { opacity: 0.4; pointer-events: none; }
-.task-item.overdue { border-color: #5a2020; }
-.task-item.started { border-color: var(--border); }
-.task-item.scheduled-today { border-color: #c8934a; }
-.task-item.task-done { opacity: 0.55; border-color: var(--success); }
+.task-item.overdue { border-left-color: #e05c5c; }
+.task-item.started { border-left-color: #5bc4f5; }
+.task-item.scheduled-today { border-left-color: #c8934a; }
+.task-item.task-done { opacity: 0.55; border-left-color: var(--success); }
 .task-item.task-done .task-text { text-decoration: line-through; color: var(--text-muted); }
 
 .undo-btn {
@@ -185,6 +186,7 @@ a.badge.file:hover { color: var(--text); cursor: pointer; }
 .badge.tag-backburner { background: #2e1800; color: #e8943a; border: 1px solid #e8943a55; }
 .badge.tag-inline     { background: #2e0a1a; color: #f48fb1; border: 1px solid #f48fb155; }
 .badge.tag-remind     { background: #2e2400; color: #ffd54f; border: 1px solid #ffd54f55; }
+.badge.tag-buy        { background: #0d2e18; color: #4dd07a; border: 1px solid #4dd07a55; }
 .badge.tag-other      { background: var(--input-bg); color: var(--text-muted); border: 1px solid var(--border); }
 .badge.due       { background: #2a1f0a; color: #f5c542; border: 1px solid #f5c54255; }
 .badge.scheduled { background: #2a1e0d; color: #c8934a; border: 1px solid #c8934a55; }

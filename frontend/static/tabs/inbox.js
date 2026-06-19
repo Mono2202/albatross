@@ -43,9 +43,25 @@ function _getNextItemId(currentId) {
 function _updateModalProgress() {
   const titleEl = document.getElementById('inbox-modal-title');
   if (!titleEl) return;
-  if (!processingMode || !_processingStartCount) { titleEl.textContent = 'Edit Item'; return; }
-  const cleared = _processingStartCount - inboxItems.length;
-  titleEl.textContent = `${cleared} / ${_processingStartCount}`;
+  if (!processingMode || !_processingStartCount) { titleEl.textContent = 'Edit Item'; }
+  else {
+    const cleared = _processingStartCount - inboxItems.length;
+    titleEl.textContent = `${cleared} / ${_processingStartCount}`;
+  }
+  const items = _getSortedFilteredItems();
+  const idx = currentInboxItem ? items.findIndex(i => i.id === currentInboxItem.id) : -1;
+  const prev = document.getElementById('inbox-nav-prev');
+  const next = document.getElementById('inbox-nav-next');
+  if (prev) prev.disabled = idx <= 0;
+  if (next) next.disabled = idx < 0 || idx >= items.length - 1;
+}
+
+function _navigateInboxPopup(direction) {
+  if (!currentInboxItem) return;
+  const items = _getSortedFilteredItems();
+  const idx = items.findIndex(i => i.id === currentInboxItem.id);
+  if (direction === -1 && idx > 0) openInboxPopup(items[idx - 1].id);
+  if (direction === 1 && idx < items.length - 1) openInboxPopup(items[idx + 1].id);
 }
 
 async function loadInboxItems() {
@@ -182,7 +198,8 @@ function openInboxPopup(id) {
   document.getElementById('popup-start').value = currentInboxItem.start || '';
   document.getElementById('popup-time').value = currentInboxItem.time || '';
   document.getElementById('popup-recur').value = currentInboxItem.recur || '';
-  document.getElementById('popup-target').value = '';
+  const isInboxItem = !currentInboxItem.rel_path || currentInboxItem.rel_path === inboxRelPath;
+  document.getElementById('popup-target').value = isInboxItem ? '' : (currentInboxItem.rel_path || '');
   document.getElementById('vault-files-dropdown').style.display = 'none';
   _ensureVaultFiles();
 
@@ -259,6 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (e.key === 'Escape') {
       _closeInboxPopup();
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const tag = e.target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      e.preventDefault();
+      const items = _getSortedFilteredItems();
+      const idx = items.findIndex(i => i.id === currentInboxItem?.id);
+      if (e.key === 'ArrowRight' && idx < items.length - 1) openInboxPopup(items[idx + 1].id);
+      if (e.key === 'ArrowLeft' && idx > 0) openInboxPopup(items[idx - 1].id);
     } else if (e.key === 'Enter') {
       const id = e.target.id;
       if (id === 'popup-tag-input' || id === 'popup-target') return;
@@ -331,6 +356,32 @@ async function saveInboxItem() {
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to save.');
+    }
+  } catch (_) {
+    alert('Request failed.');
+  }
+}
+
+async function doneInboxItem() {
+  if (!currentInboxItem) return;
+  const newLine = _buildNewLine();
+  const targetPath = document.getElementById('popup-target').value.trim();
+  const nextId = _getNextItemId(currentInboxItem.id);
+  try {
+    const res = await fetch('/inbox/done', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_line: currentInboxItem.raw_line, new_line: newLine, target_path: targetPath }),
+    });
+    if (res.ok) {
+      playCompletionFeedback();
+      inboxItems = inboxItems.filter(i => i.id !== currentInboxItem.id);
+      _updateInboxBadge(inboxItems.length);
+      renderInboxItems();
+      if (processingMode && nextId) { openInboxPopup(nextId); } else { _closeInboxPopup(); }
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to complete.');
     }
   } catch (_) {
     alert('Request failed.');

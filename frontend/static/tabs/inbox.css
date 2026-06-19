@@ -194,6 +194,12 @@
   border-color: var(--text-muted);
 }
 
+.inbox-close-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
 /* ── Fields ────────────────────────────────────────────────────────────────── */
 
 .inbox-field {
