@@ -140,11 +140,11 @@ export function Finance() {
     <div className="tab-panel active" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="finance-month-nav">
         <button className="finance-month-btn" onClick={() => setMonth(m => addMonths(m, -1))}>‹</button>
-        <span>{monthLabel(month)}</span>
+        <span className="finance-month-label">{monthLabel(month)}</span>
         <button className="finance-month-btn" onClick={() => setMonth(m => addMonths(m, 1))}>›</button>
       </div>
 
-      <div className="tasks-row">
+      <div className="tasks-row finance-tasks-row" style={{ alignItems: 'stretch' }}>
         <div className="card" style={{ flex: 1.4, minWidth: 0 }}>
           <h2>Overview</h2>
           {entriesLoading
