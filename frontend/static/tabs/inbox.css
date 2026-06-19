@@ -7,6 +7,12 @@
   flex-wrap: wrap;
 }
 
+#inbox-process-btn.inbox-process-btn--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .inbox-obsidian-btn {
   display: inline-flex;
   align-items: center;

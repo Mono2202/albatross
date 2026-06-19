@@ -5,8 +5,48 @@ let currentInboxItem = null;
 let inboxSortNewest = true;
 let inboxRelPath = null;
 let popupTags = [];
+let processingMode = localStorage.getItem('inboxProcessingMode') === '1';
+let _processingStartCount = 0;
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
+
+function toggleProcessingMode() {
+  processingMode = !processingMode;
+  localStorage.setItem('inboxProcessingMode', processingMode ? '1' : '0');
+  if (processingMode) _processingStartCount = inboxItems.length;
+  _updateProcessingToggle();
+}
+
+function _updateProcessingToggle() {
+  const btn = document.getElementById('inbox-process-btn');
+  if (btn) btn.classList.toggle('inbox-process-btn--active', processingMode);
+}
+
+function _getSortedFilteredItems() {
+  const filterVal = (document.getElementById('inbox-filter').value || '').toLowerCase();
+  let items = [...inboxItems];
+  if (filterVal) items = items.filter(i =>
+    i.description.toLowerCase().includes(filterVal) ||
+    i.tags.some(t => t.toLowerCase().includes(filterVal))
+  );
+  if (inboxSortNewest) items = items.slice().reverse();
+  return items;
+}
+
+function _getNextItemId(currentId) {
+  const items = _getSortedFilteredItems();
+  const idx = items.findIndex(i => i.id === currentId);
+  if (idx === -1 || items.length <= 1) return null;
+  return idx < items.length - 1 ? items[idx + 1].id : items[idx - 1].id;
+}
+
+function _updateModalProgress() {
+  const titleEl = document.getElementById('inbox-modal-title');
+  if (!titleEl) return;
+  if (!processingMode || !_processingStartCount) { titleEl.textContent = 'Edit Item'; return; }
+  const cleared = _processingStartCount - inboxItems.length;
+  titleEl.textContent = `${cleared} / ${_processingStartCount}`;
+}
 
 async function loadInboxItems() {
   const list = document.getElementById('inbox-list');
@@ -19,6 +59,8 @@ async function loadInboxItems() {
     _updateInboxBadge(inboxItems.length);
     renderInboxItems();
     _ensureVaultFiles();
+    _updateProcessingToggle();
+    if (processingMode) _processingStartCount = inboxItems.length;
   } catch (e) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">Failed to load inbox.</div>`;
   }
@@ -147,6 +189,7 @@ function openInboxPopup(id) {
   popupTags = [...currentInboxItem.tags];
   _renderPopupTags();
 
+  _updateModalProgress();
   document.getElementById('inbox-modal').style.display = 'flex';
   const descEl = document.getElementById('popup-description');
   descEl.style.height = 'auto';
@@ -219,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (e.key === 'Enter') {
       const id = e.target.id;
       if (id === 'popup-tag-input' || id === 'popup-target') return;
+      if (id === 'popup-description' && e.shiftKey) return;
       e.preventDefault();
       saveInboxItem();
     }
@@ -297,6 +341,7 @@ async function moveInboxItem() {
   if (!currentInboxItem) return;
   const newLine = _buildNewLine();
   const targetPath = document.getElementById('popup-target').value.trim();
+  const nextId = _getNextItemId(currentInboxItem.id);
   try {
     const res = await fetch('/inbox/move', {
       method: 'POST',
@@ -308,7 +353,7 @@ async function moveInboxItem() {
       inboxItems = inboxItems.filter(i => i.id !== currentInboxItem.id);
       _updateInboxBadge(inboxItems.length);
       renderInboxItems();
-      _closeInboxPopup();
+      if (processingMode && nextId) { openInboxPopup(nextId); } else { _closeInboxPopup(); }
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to move.');
@@ -321,6 +366,7 @@ async function moveInboxItem() {
 async function deleteInboxItem() {
   if (!currentInboxItem) return;
   if (!confirm('Delete this inbox item? This cannot be undone.')) return;
+  const nextId = _getNextItemId(currentInboxItem.id);
   try {
     const res = await fetch('/inbox/delete', {
       method: 'POST',
@@ -331,7 +377,7 @@ async function deleteInboxItem() {
       inboxItems = inboxItems.filter(i => i.id !== currentInboxItem.id);
       _updateInboxBadge(inboxItems.length);
       renderInboxItems();
-      _closeInboxPopup();
+      if (processingMode && nextId) { openInboxPopup(nextId); } else { _closeInboxPopup(); }
     } else {
       const data = await res.json();
       alert(data.error || 'Failed to delete.');
@@ -344,6 +390,7 @@ async function deleteInboxItem() {
 async function completeInboxItem(id) {
   const item = inboxItems.find(i => i.id === id);
   if (!item) return;
+  const nextId = _getNextItemId(id);
   const el = document.getElementById(`inbox-item-${id}`);
   if (el) el.style.opacity = '0.4';
   try {
@@ -357,6 +404,7 @@ async function completeInboxItem(id) {
       inboxItems = inboxItems.filter(i => i.id !== id);
       _updateInboxBadge(inboxItems.length);
       renderInboxItems();
+      if (processingMode && nextId) openInboxPopup(nextId);
     } else {
       if (el) el.style.opacity = '';
       const data = await res.json();
