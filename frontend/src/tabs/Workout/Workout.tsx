@@ -279,7 +279,7 @@ function RecordRow({ record, suggestions, onFill }: {
   }
 
   return (
-    <div className="workout-record-wrap">
+    <>
       <div className="workout-record-row" onClick={toggle}>
         <span className="workout-record-name">{record.name}</span>
         <span className="workout-record-weight">{record.weight} <span className="ex-x">×</span><span className="ex-reps">{record.reps}</span></span>
@@ -298,7 +298,7 @@ function RecordRow({ record, suggestions, onFill }: {
           }
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -415,7 +415,7 @@ export function Workout() {
 
   return (
     <div className="tab-panel active" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="tasks-row">
+      <div className="tasks-row workout-tasks-row">
         <div className="card" style={{ flex: 2, minWidth: 0 }}>
           <div className="tasks-header"><h2>Today's Workout</h2></div>
           {todayLoading
@@ -450,9 +450,9 @@ export function Workout() {
                   </div>
                 )}
               </div>
-              <input type="number" value={sets} onChange={e => setSets(e.target.value)} placeholder="Sets" min={1} required />
-              <input type="number" value={reps} onChange={e => setReps(e.target.value)} placeholder="Reps" min={1} required />
-              <input type="text" value={weight} onChange={e => setWeight(e.target.value)} placeholder="Weight" autoComplete="off" required />
+              <input id="workout-sets" type="number" value={sets} onChange={e => setSets(e.target.value)} placeholder="Sets" min={1} required />
+              <input id="workout-reps" type="number" value={reps} onChange={e => setReps(e.target.value)} placeholder="Reps" min={1} required />
+              <input id="workout-weight" type="text" value={weight} onChange={e => setWeight(e.target.value)} placeholder="Weight" autoComplete="off" required />
               <div className="workout-btn-group">
                 <button type="submit" className="workout-add-btn" title="Add">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
@@ -466,7 +466,7 @@ export function Workout() {
           </form>
 
           {(restTimer.running || restTimer.done) && (
-            <div className={restTimer.done ? 'rest-timer-done' : ''}>
+            <div id="rest-timer-section" className={restTimer.done ? 'rest-timer-done' : ''}>
               <div className="rest-timer-bar-track">
                 <div className="rest-timer-bar" style={{ width: `${barPct}%` }} />
               </div>

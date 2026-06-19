@@ -15,6 +15,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,
     proxy: {
       '/assets':           { target: FLASK, changeOrigin: true },
       '/manifest.json':    { target: FLASK, changeOrigin: true },
