@@ -40,6 +40,7 @@ export default defineConfig({
       '/vault-tags':       { target: FLASK, changeOrigin: true },
       '/daily-note-uri':   { target: FLASK, changeOrigin: true },
       '/item':             { target: FLASK, changeOrigin: true },
+      '/config':           { target: FLASK, changeOrigin: true },
     },
   },
 });

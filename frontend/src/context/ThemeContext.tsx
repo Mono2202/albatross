@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-type Theme = 'catppuccin' | 'dark' | 'light';
+export type Theme = 'catppuccin' | 'dark' | 'light';
 
 interface ThemeContextValue {
   theme: Theme;
+  setTheme: (t: Theme) => void;
   toggleTheme: () => void;
   logoGlow: boolean;
   toggleLogoGlow: () => void;
@@ -12,15 +13,21 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, _setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('theme') as Theme | null;
     return saved ?? 'catppuccin';
   });
 
   const [logoGlow, setLogoGlow] = useState(() => localStorage.getItem('logoGlow') !== 'off');
 
+  const setTheme = useCallback((next: Theme) => {
+    _setTheme(next);
+    localStorage.setItem('theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }, []);
+
   const toggleTheme = useCallback(() => {
-    setTheme(prev => {
+    _setTheme(prev => {
       const next = prev === 'catppuccin' ? 'dark' : prev === 'dark' ? 'light' : 'catppuccin';
       localStorage.setItem('theme', next);
       document.documentElement.setAttribute('data-theme', next);
@@ -42,7 +49,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, logoGlow, toggleLogoGlow }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, logoGlow, toggleLogoGlow }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -16,12 +16,14 @@ from backend.routes.workout import create_workout_blueprint
 from backend.routes.food import create_food_blueprint
 from backend.routes.finance import create_finance_blueprint
 from backend.routes.items import create_items_blueprint
+from backend.routes.config import create_config_blueprint
 from obsidian import Vault
 
 FETCH_TASKS_INTERVAL = 30
 
 dotenv.load_dotenv()
 
+_DOTENV_PATH = os.path.join(os.path.dirname(__file__), '.env')
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), 'frontend')
 _DIST_DIR = os.path.join(_FRONTEND_DIR, 'dist')
 
@@ -89,6 +91,7 @@ app.register_blueprint(create_workout_blueprint(vault.workout, logger, pushover)
 app.register_blueprint(create_food_blueprint(vault.food, logger))
 app.register_blueprint(create_finance_blueprint(vault.finance, logger))
 app.register_blueprint(create_items_blueprint(vault.inbox, vault.tasks, logger))
+app.register_blueprint(create_config_blueprint(_DOTENV_PATH, logger))
 
 def main():
     app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False, threaded=True)
