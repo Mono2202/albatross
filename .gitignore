@@ -208,3 +208,8 @@ __marimo__/
 
 CLAUDE.md
 memory
+
+# Frontend (Node / Vite)
+node_modules/
+frontend/dist/
+frontend/.vite/

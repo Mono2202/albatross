@@ -3,7 +3,7 @@ import subprocess
 from datetime import date
 from urllib.parse import quote
 import dotenv
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 
 from backend.logger import get_logger
 from backend.notifications import reminder, rest_timer
@@ -15,16 +15,20 @@ from backend.routes.music import create_music_blueprint
 from backend.routes.workout import create_workout_blueprint
 from backend.routes.food import create_food_blueprint
 from backend.routes.finance import create_finance_blueprint
+from backend.routes.items import create_items_blueprint
 from obsidian import Vault
 
 FETCH_TASKS_INTERVAL = 30
 
 dotenv.load_dotenv()
 
+_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), 'frontend')
+_DIST_DIR = os.path.join(_FRONTEND_DIR, 'dist')
+
 app = Flask(
     __name__,
-    template_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'templates'),
-    static_folder=os.path.join(os.path.dirname(__file__), 'frontend', 'static'),
+    static_folder=os.path.join(_DIST_DIR, 'js'),
+    static_url_path='/js',
 )
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # no cache during development
 
@@ -53,17 +57,20 @@ reminder.start(vault.tasks, vault.habits, vault.inbox, pushover, tasks_store, in
 
 @app.route('/assets/<path:filename>')
 def assets(filename):
-    return send_from_directory(
-        os.path.join(os.path.dirname(__file__), 'frontend', 'assets'), filename
-    )
+    return send_from_directory(os.path.join(_FRONTEND_DIR, 'assets'), filename)
 
 @app.route('/manifest.json')
 def manifest():
-    return send_from_directory(
-        os.path.join(os.path.dirname(__file__), 'frontend', 'assets'), 'manifest.json'
-    )
+    return send_from_directory(os.path.join(_FRONTEND_DIR, 'assets'), 'manifest.json')
 
 _daily_open_date = None
+
+@app.route('/daily-note-uri')
+def daily_note_uri_endpoint():
+    daily_folder = os.getenv("OBSIDIAN_DAILY_PATH", "")
+    today_str = date.today().strftime("%Y-%m-%d")
+    daily_rel = f"{daily_folder}/{today_str}.md" if daily_folder else f"{today_str}.md"
+    return jsonify({'uri': f"obsidian://open?file={quote(daily_rel)}"})
 
 @app.route('/')
 def index():
@@ -72,11 +79,7 @@ def index():
     if _daily_open_date != today:
         subprocess.Popen(['obsidian', 'daily:read'])
         _daily_open_date = today
-    daily_folder = os.getenv("OBSIDIAN_DAILY_PATH", "")
-    today_str = today.strftime("%Y-%m-%d")
-    daily_rel = f"{daily_folder}/{today_str}.md" if daily_folder else f"{today_str}.md"
-    daily_note_uri = f"obsidian://open?file={quote(daily_rel)}"
-    return render_template('index.html', daily_note_uri=daily_note_uri)
+    return send_from_directory(_DIST_DIR, 'index.html')
 
 app.register_blueprint(create_tasks_blueprint(vault.tasks, tasks_store, logger))
 app.register_blueprint(create_habits_blueprint(vault.habits, logger))
@@ -85,6 +88,7 @@ app.register_blueprint(create_music_blueprint(_spotify, vault.music, logger, _sp
 app.register_blueprint(create_workout_blueprint(vault.workout, logger, pushover))
 app.register_blueprint(create_food_blueprint(vault.food, logger))
 app.register_blueprint(create_finance_blueprint(vault.finance, logger))
+app.register_blueprint(create_items_blueprint(vault.inbox, vault.tasks, logger))
 
 def main():
     app.run(host=os.getenv("HOST"), port=int(os.getenv("PORT")), debug=False, threaded=True)
