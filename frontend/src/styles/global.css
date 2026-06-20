@@ -356,6 +356,7 @@ button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-top: 20px;
 }
 .inbox-modal-title { font-weight: 600; font-size: 1rem; }
 .inbox-close-btn {

@@ -37,7 +37,9 @@ while ($true) {
     Write-Host $pullOutput
 
     if ($pullOutput -match "Updating") {
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Changes detected. Restarting server..." -ForegroundColor Cyan
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Changes detected. Building frontend..." -ForegroundColor Cyan
+        & npm --prefix "$PROJECT_PATH\frontend" run build
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Restarting server..." -ForegroundColor Cyan
         Stop-Server
         Start-Server
     }
