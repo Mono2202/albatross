@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Exercise, ExerciseSuggestion, WorkoutRecord, WorkoutSession, WorkoutProgress } from '@/types';
 import { playCompletionFeedback } from '@/utils/audioUtils';
+import { ConfirmDelete } from '@/components/ConfirmDelete/ConfirmDelete';
 
 // ── Rest timer ────────────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ function WorkoutList({ exercises, onDelete }: { exercises: Exercise[]; onDelete:
               return (
                 <div key={`${sg.key}-${si}`} className="workout-set-row">
                   <span className="workout-set-stats"><ExStats sets={totalSets} reps={sg.items[0].reps} weight={sg.items[0].weight} /></span>
-                  <button className="workout-delete-btn" onClick={() => onDelete(lastIndex)} title="Remove">×</button>
+                  <ConfirmDelete className="workout-delete-btn" onConfirm={() => onDelete(lastIndex)} />
                 </div>
               );
             })}

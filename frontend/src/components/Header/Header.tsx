@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/context/ThemeContext';
+import { useLocalConfig } from '@/context/LocalConfigContext';
 import { VERSION } from '@/version';
 
 function themeIconSrc(theme: string): string {
@@ -8,8 +9,14 @@ function themeIconSrc(theme: string): string {
   return '/assets/light-theme.svg';
 }
 
-export function Header() {
+interface HeaderProps {
+  onOpenSettings: () => void;
+  settingsActive: boolean;
+}
+
+export function Header({ onOpenSettings, settingsActive }: HeaderProps) {
   const { theme, toggleTheme, logoGlow, toggleLogoGlow } = useTheme();
+  const { appTitle } = useLocalConfig();
 
   const { data: dailyUri } = useQuery<string>({
     queryKey: ['daily-note-uri'],
@@ -37,7 +44,7 @@ export function Header() {
           onClick={toggleLogoGlow}
         />
         <div>
-          <h1>MonoVault <span className="header-version">v{VERSION}</span></h1>
+          <h1>{appTitle} <span className="header-version">v{VERSION}</span></h1>
           <div className="date">{dateStr}</div>
         </div>
       </div>
@@ -52,6 +59,13 @@ export function Header() {
         </button>
         <button className="header-btn" onClick={toggleTheme} title="Toggle theme">
           <img src={themeIconSrc(theme)} alt="Toggle theme" />
+        </button>
+        <button
+          className={`header-btn${settingsActive ? ' header-btn--active' : ''}`}
+          onClick={onOpenSettings}
+          title="Settings"
+        >
+          <img src="/assets/settings.svg" alt="Settings" />
         </button>
       </div>
     </header>

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { LocalConfigProvider } from '@/context/LocalConfigContext';
 import { App } from './App';
 import './styles/global.css';
 
@@ -18,7 +19,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <App />
+        <LocalConfigProvider>
+          <App />
+        </LocalConfigProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>

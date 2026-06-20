@@ -5,6 +5,7 @@ import { Task, TabName, TaskEditState, NextActionState, ItemSource, UnifiedItem 
 import { TaskModal } from '@/components/TaskModal/TaskModal';
 import { NextActionModal } from '@/components/NextActionModal/NextActionModal';
 import { cleanTaskText } from '@/utils/taskUtils';
+import { useLocalConfig } from '@/context/LocalConfigContext';
 
 function taskToUnified(task: Task): UnifiedItem {
   return {
@@ -29,8 +30,9 @@ const Music    = lazy(() => import('./tabs/Music/Music').then(m => ({ default: m
 const Workout  = lazy(() => import('./tabs/Workout/Workout').then(m => ({ default: m.Workout })));
 const Food     = lazy(() => import('./tabs/Food/Food').then(m => ({ default: m.Food })));
 const Finance  = lazy(() => import('./tabs/Finance/Finance').then(m => ({ default: m.Finance })));
+const Settings = lazy(() => import('./tabs/Settings/Settings').then(m => ({ default: m.Settings })));
 
-const TABS: { id: TabName; icon: string; alt: string }[] = [
+const ALL_TABS: { id: TabName; icon: string; alt: string }[] = [
   { id: 'today',    icon: '/assets/today.svg',    alt: 'Today' },
   { id: 'planning', icon: '/assets/planning.svg', alt: 'Planning' },
   { id: 'inbox',    icon: '/assets/inbox.svg',    alt: 'Inbox' },
@@ -41,13 +43,18 @@ const TABS: { id: TabName; icon: string; alt: string }[] = [
   { id: 'food',     icon: '/assets/food.svg',     alt: 'Food' },
 ];
 
+
+type AnyTab = TabName | 'settings';
+
 function TabFallback() {
   return <div className="empty-state"><span className="spinner" /> Loading…</div>;
 }
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<TabName>(() => {
-    return (localStorage.getItem('activeTab') as TabName) ?? 'today';
+  const { tabOrder, hiddenTabs } = useLocalConfig();
+
+  const [activeTab, setActiveTab] = useState<AnyTab>(() => {
+    return (localStorage.getItem('activeTab') as AnyTab) ?? 'today';
   });
   const qc = useQueryClient();
 
@@ -64,13 +71,12 @@ export function App() {
 
   const todayBadge = Object.keys(todayData?.tasks ?? {}).length;
   const inboxBadge = inboxData?.items.length ?? 0;
-  const [taskEdit,     setTaskEdit]     = useState<TaskEditState | null>(null);
+  const [taskEdit,   setTaskEdit]   = useState<TaskEditState | null>(null);
   const [nextAction, setNextAction] = useState<NextActionState | null>(null);
 
-  // Track which tabs have been visited (for lazy loading)
-  const [visited, setVisited] = useState<Set<TabName>>(() => new Set([activeTab]));
+  const [visited, setVisited] = useState<Set<AnyTab>>(() => new Set([activeTab]));
 
-  function switchTab(tab: TabName) {
+  function switchTab(tab: AnyTab) {
     setActiveTab(tab);
     setVisited(prev => new Set([...prev, tab]));
     localStorage.setItem('activeTab', tab);
@@ -82,12 +88,21 @@ export function App() {
     setTaskEdit({ item: taskToUnified(task), source });
   }
 
+  // Ordered visible tabs (respects user ordering and visibility)
+  const navTabs = tabOrder
+    .filter(id => !hiddenTabs.includes(id))
+    .map(id => ALL_TABS.find(t => t.id === id)!)
+    .filter(Boolean);
+
   return (
     <>
-      <Header />
+      <Header
+        onOpenSettings={() => switchTab('settings')}
+        settingsActive={activeTab === 'settings'}
+      />
       <div className="main">
         <div className="tabs">
-          {TABS.map(({ id, icon, alt }) => (
+          {navTabs.map(({ id, icon, alt }) => (
             <button
               key={id}
               className={`tab-btn${activeTab === id ? ' active' : ''}`}
@@ -105,71 +120,78 @@ export function App() {
           ))}
         </div>
 
-          {/* Today is always mounted; others mount on first visit and stay mounted */}
+        <Suspense fallback={<TabFallback />}>
+          <div style={{ display: activeTab === 'today' ? 'contents' : 'none' }}>
+            <Today onEditTask={task => openTaskEdit(task, 'today')} />
+          </div>
+        </Suspense>
+
+        {visited.has('planning') && (
           <Suspense fallback={<TabFallback />}>
-            <div style={{ display: activeTab === 'today' ? 'contents' : 'none' }}>
-              <Today onEditTask={task => openTaskEdit(task, 'today')} />
+            <div style={{ display: activeTab === 'planning' ? 'contents' : 'none' }}>
+              <Planning
+                onEditTask={(task, source) => openTaskEdit(task, source)}
+                onNextAction={(relPath, file) => setNextAction({ relPath, file })}
+              />
             </div>
           </Suspense>
+        )}
 
-          {visited.has('planning') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'planning' ? 'contents' : 'none' }}>
-                <Planning
-                  onEditTask={(task, source) => openTaskEdit(task, source)}
-                  onNextAction={(relPath, file) => setNextAction({ relPath, file })}
-                />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('inbox') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'inbox' ? 'contents' : 'none' }}>
+              <Inbox />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('inbox') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'inbox' ? 'contents' : 'none' }}>
-                <Inbox />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('habits') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'habits' ? 'contents' : 'none' }}>
+              <Habits />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('habits') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'habits' ? 'contents' : 'none' }}>
-                <Habits />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('finance') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'finance' ? 'contents' : 'none' }}>
+              <Finance />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('finance') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'finance' ? 'contents' : 'none' }}>
-                <Finance />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('workout') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'workout' ? 'contents' : 'none' }}>
+              <Workout />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('workout') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'workout' ? 'contents' : 'none' }}>
-                <Workout />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('music') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'music' ? 'contents' : 'none' }}>
+              <Music />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('music') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'music' ? 'contents' : 'none' }}>
-                <Music />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('food') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'food' ? 'contents' : 'none' }}>
+              <Food />
+            </div>
+          </Suspense>
+        )}
 
-          {visited.has('food') && (
-            <Suspense fallback={<TabFallback />}>
-              <div style={{ display: activeTab === 'food' ? 'contents' : 'none' }}>
-                <Food />
-              </div>
-            </Suspense>
-          )}
+        {visited.has('settings') && (
+          <Suspense fallback={<TabFallback />}>
+            <div style={{ display: activeTab === 'settings' ? 'contents' : 'none' }}>
+              <Settings />
+            </div>
+          </Suspense>
+        )}
       </div>
 
       {taskEdit && (

@@ -2,6 +2,8 @@ import { useState, FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FinanceEntry, FinanceSubscription } from '@/types';
 import { playCompletionFeedback } from '@/utils/audioUtils';
+import { useLocalConfig } from '@/context/LocalConfigContext';
+import { ConfirmDelete } from '@/components/ConfirmDelete/ConfirmDelete';
 
 const FINANCE_COLORS: Record<string, string> = {
   Food: '#ff6384', Groceries: '#ff8c42', Transport: '#36a2eb', Shopping: '#ff9f40',
@@ -37,7 +39,7 @@ function slicePath(cx: number, cy: number, r: number, startDeg: number, endDeg: 
   return `M ${cx} ${cy} L ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)} Z`;
 }
 
-function PieChart({ totals, grandTotal }: { totals: Record<string, number>; grandTotal: number }) {
+function PieChart({ totals, grandTotal, currencySymbol }: { totals: Record<string, number>; grandTotal: number; currencySymbol: string }) {
   const cx = 100, cy = 100, r = 88, hole = 52;
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
 
@@ -59,7 +61,7 @@ function PieChart({ totals, grandTotal }: { totals: Record<string, number>; gran
       <circle cx={cx} cy={cy} r={hole} fill="var(--surface)" />
       {grandTotal > 0 && (
         <>
-          <text x={cx} y={cy - 5} textAnchor="middle" fontSize={14} fill="var(--text)" fontWeight={700} fontFamily="inherit">{grandTotal.toFixed(2)}</text>
+          <text x={cx} y={cy - 5} textAnchor="middle" fontSize={14} fill="var(--text)" fontWeight={700} fontFamily="inherit">{currencySymbol}{grandTotal.toFixed(2)}</text>
           <text x={cx} y={cy + 13} textAnchor="middle" fontSize={10} fill="var(--text-muted)" fontFamily="inherit">total</text>
         </>
       )}
@@ -71,6 +73,7 @@ function PieChart({ totals, grandTotal }: { totals: Record<string, number>; gran
 
 export function Finance() {
   const qc = useQueryClient();
+  const { currencySymbol } = useLocalConfig();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   const { data: entriesData, isLoading: entriesLoading } = useQuery<{ entries: FinanceEntry[] }>({
@@ -152,7 +155,7 @@ export function Finance() {
             : (
               <>
                 <div className="finance-chart-wrap">
-                  <PieChart totals={totals} grandTotal={grandTotal} />
+                  <PieChart totals={totals} grandTotal={grandTotal} currencySymbol={currencySymbol} />
                 </div>
                 <div className="finance-legend">
                   {sortedTotals.map(([cat, amt]) => (
@@ -160,7 +163,7 @@ export function Finance() {
                       <span className="finance-legend-dot" style={{ background: financeColor(cat) }} />
                       <span className="finance-legend-cat">{cat}</span>
                       <span className="finance-legend-pct">{((amt / grandTotal) * 100).toFixed(1)}%</span>
-                      <span className="finance-legend-amt">{amt.toFixed(2)}</span>
+                      <span className="finance-legend-amt">{currencySymbol}{amt.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -205,8 +208,8 @@ export function Finance() {
                   <span className="finance-entry-date">{dateStr}</span>
                   <span className="finance-entry-cat">{e.category}</span>
                   <span className="finance-entry-title">{e.title}</span>
-                  <span className="finance-entry-amt">{e.amount.toFixed(2)}</span>
-                  <button className="finance-delete-btn" onClick={() => deleteEntry(e.origIdx)} title="Remove">×</button>
+                  <span className="finance-entry-amt">{currencySymbol}{e.amount.toFixed(2)}</span>
+                  <ConfirmDelete className="finance-delete-btn" onConfirm={() => deleteEntry(e.origIdx)} />
                 </div>
               );
             })
@@ -216,7 +219,7 @@ export function Finance() {
       <div className="card">
         <div className="finance-subs-header">
           <h2>Subscriptions</h2>
-          {subscriptions.length > 0 && <span className="finance-subs-total">{subTotal.toFixed(2)} / mo</span>}
+          {subscriptions.length > 0 && <span className="finance-subs-total">{currencySymbol}{subTotal.toFixed(2)} / mo</span>}
         </div>
         {subsLoading
           ? <div className="empty-state"><span className="spinner" /></div>
@@ -228,7 +231,7 @@ export function Finance() {
                 <span className="finance-sub-day">Day {sub.day}</span>
                 <span className="finance-sub-cat">{sub.category}</span>
                 <span className="finance-sub-name">{sub.name}</span>
-                <span className="finance-entry-amt">{sub.amount.toFixed(2)}</span>
+                <span className="finance-entry-amt">{currencySymbol}{sub.amount.toFixed(2)}</span>
               </div>
             ))
         }
